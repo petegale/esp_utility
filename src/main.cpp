@@ -742,7 +742,8 @@ function updateControls() {
   const adj   = document.getElementById('adj-grid');
   const wheel = document.getElementById('wheel-area');
   const isDirect = currentMode === 'DIRECT';
-  if (isDirect && apEngaged) {
+  if (isDirect) {
+    // Show wheel whenever DIRECT is selected, engaged or not
     adj.classList.add('hidden');
     wheel.classList.add('visible');
   } else {

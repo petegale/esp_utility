@@ -638,7 +638,8 @@ function updateControls() {
   const adj   = document.getElementById('adj-grid');
   const wheel = document.getElementById('wheel-area');
   const isDirect = currentMode === 'DIRECT';
-  if (isDirect && apEngaged) {
+  if (isDirect) {
+    // Show wheel whenever DIRECT is selected, engaged or not
     adj.classList.add('hidden');
     wheel.classList.add('visible');
   } else {
@@ -960,8 +961,11 @@ const SIM_TARGETS = [
   { mmsi:244012345, name:'FRISIAN TRADER', lat:50.8450, lon:0.6100, cogDeg:270, sogKn:8.9  },
 ];
 
+// simState deliberately omits 'mode' and 'heading' so the sim interval
+// never overrides the user's engage/disengage actions via updateFromServer.
+// Only instrument and position data is pushed from the sim.
 let simState = {
-  mode:'STBY', heading:-1, vessel:247,
+  vessel:247,
   depth:24.6, sog:5.8, cog:247, aws:14.2, awa:42,
   ownLat:OWN_LAT, ownLon:OWN_LON,
   targets: SIM_TARGETS
@@ -974,6 +978,7 @@ function connect() {
   vesselHeading = 247; // simulated heading for heading-up display
   aisTargets = SIM_TARGETS;
   updateAisDisplay();
+  // Push instrument data only — don't pass mode so engage state isn't reset
   updateFromServer(simState);
 
   // Gently animate instruments
