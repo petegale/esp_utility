@@ -564,8 +564,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <text x="173" y="90"  font-size="9" fill="#333" id="ring-label-3"></text>
         <text x="173" y="132" font-size="9" fill="#333" id="ring-label-2"></text>
         <text x="173" y="174" font-size="9" fill="#333" id="ring-label-1"></text>
-        <text x="170" y="14" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">N</text>
+        <!-- Heading-up indicator: shows current vessel heading at top -->
+        <text id="hdg-up-label" x="170" y="13" text-anchor="middle" font-size="11" fill="#888" font-weight="bold">---&#xb0;</text>
+        <!-- North tick: short line that rotates with the display to show where N is -->
+        <line id="north-tick" x1="170" y1="0" x2="170" y2="10" stroke="#444" stroke-width="2"/>
+        <!-- Own vessel triangle — always points up (forward) -->
         <polygon points="170,158 175,178 170,174 165,178" fill="#00cc55"/>
+        <!-- All targets rendered here, rotated to heading-up by JS -->
         <g id="ais-targets-group"></g>
       </svg>
     </div>
@@ -667,6 +672,9 @@ function updateFromServer(d) {
       setModeDisplay(display);
       updateEngageState();
     }
+  }
+  if (d.vessel !== undefined && d.vessel >= 0) {
+    vesselHeading = d.vessel;
   }
   if (d.heading >= 0) {
     document.getElementById('ap-hdg-value').textContent  = d.heading.toFixed(1) + '\u00B0';
@@ -889,9 +897,10 @@ wsvg.addEventListener('touchend',   onWheelEnd);
 // AIS
 // ════════════════════════════════
 const RANGE_OPTIONS = [0.5, 1, 2, 5, 10, 20];
-let rangeIdx   = 3;
-let ownLat     = null, ownLon = null;
-let aisTargets = [];
+let rangeIdx      = 3;
+let ownLat        = null, ownLon = null;
+let aisTargets    = [];
+let vesselHeading = null; // degrees, used for heading-up radar rotation
 
 function setRange(idx) {
   rangeIdx = idx;
@@ -913,7 +922,14 @@ function latLonToRadar(lat, lon) {
   const dLat = (lat - ownLat) * 60;
   const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
   const scale = 170 / RANGE_OPTIONS[rangeIdx];
-  return { x: 170 + dLon * scale, y: 170 - dLat * scale };
+  // North-up x,y
+  const nx = dLon * scale;
+  const ny = -dLat * scale;
+  // Rotate to heading-up: subtract vessel heading
+  const hdgRad = (vesselHeading || 0) * Math.PI / 180;
+  const rx =  nx * Math.cos(-hdgRad) - ny * Math.sin(-hdgRad);
+  const ry =  nx * Math.sin(-hdgRad) + ny * Math.cos(-hdgRad);
+  return { x: 170 + rx, y: 170 + ry };
 }
 
 function bearingDistance(lat1, lon1, lat2, lon2) {
@@ -930,6 +946,22 @@ function bearingDistance(lat1, lon1, lat2, lon2) {
 
 function updateAisDisplay() {
   updateRingLabels();
+  // Update heading-up indicator
+  const hdgLbl = document.getElementById('hdg-up-label');
+  if (hdgLbl) hdgLbl.textContent = vesselHeading !== null ? Math.round(vesselHeading) + '°' : '---°';
+  // Rotate north tick to show where N is relative to heading-up display
+  const northTick = document.getElementById('north-tick');
+  if (northTick) {
+    const ntAngle = -(vesselHeading || 0);
+    const cx = 170, cy = 170, r = 170;
+    const rad = (ntAngle - 90) * Math.PI / 180;
+    const x1 = cx + r * Math.cos(rad);
+    const y1 = cy + r * Math.sin(rad);
+    const x2 = cx + (r - 10) * Math.cos(rad);
+    const y2 = cy + (r - 10) * Math.sin(rad);
+    northTick.setAttribute('x1', x1.toFixed(1)); northTick.setAttribute('y1', y1.toFixed(1));
+    northTick.setAttribute('x2', x2.toFixed(1)); northTick.setAttribute('y2', y2.toFixed(1));
+  }
   const grp  = document.getElementById('ais-targets-group');
   const list = document.getElementById('ais-list');
   grp.innerHTML = ''; list.innerHTML = '';
@@ -944,7 +976,7 @@ function updateAisDisplay() {
     const inRange = pos && pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
 
     if (inRange && pos) {
-      const cogRad = (t.cogDeg || t.cog || 0) * Math.PI / 180;
+      const cogRad = ((t.cogDeg || t.cog || 0) - (vesselHeading || 0)) * Math.PI / 180;
       const s = 8;
       if ((t.sogKn || t.sog || 0) > 0.5) {
         const vl = ((t.sogKn || t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
