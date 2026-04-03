@@ -109,865 +109,922 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Nav</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 
     body {
       font-family: -apple-system, sans-serif;
-      background: #0a1628;
+      background: #111;
       color: #fff;
       display: flex;
       flex-direction: column;
-      /* 100dvh (dynamic viewport height) accounts for Android browser chrome.
-         Falls back to 100vh on older browsers that don't support dvh. */
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
     }
 
-    /* ── Screen container ── */
+    /* ── Screens ── */
     #screens {
       flex: 1;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 12px 12px 0 12px;
     }
 
-    .screen { display: none; width: 100%; max-width: 360px; flex-direction: column; align-items: center; }
+    .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; padding: 16px 16px 0; }
     .screen.active { display: flex; }
 
     /* ── Tab bar ── */
     #tabbar {
       display: flex;
-      background: #0d1e2e;
-      border-top: 1px solid #1a2e40;
-      padding: 6px 0 10px 0;
+      background: #1a1a1a;
+      border-top: 1px solid #2a2a2a;
+      padding: 6px 0 10px;
       flex-shrink: 0;
     }
     .tab {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      padding: 6px 0;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      color: #445566;
-      font-size: 0.65em;
-      letter-spacing: 0.5px;
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; padding: 6px 0;
+      cursor: pointer; color: #555;
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
       transition: color 0.15s;
     }
     .tab svg { width: 22px; height: 22px; }
-    .tab.active { color: #44aaff; }
+    .tab.active { color: #fff; }
 
-    /* ═══════════════════════════════════════════
+    /* ════════════════════════════════
        AUTOPILOT SCREEN
-    ═══════════════════════════════════════════ */
+    ════════════════════════════════ */
+    #screen-ap { padding-bottom: 0; }
+
+    .ap-topbar {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 6px;
+    }
+    .ap-label { font-size: 13px; font-weight: 600; color: #666; letter-spacing: 3px; }
+
     #ap-status {
-      background: #1a2a3a;
-      border-radius: 12px;
-      padding: 10px 24px;
-      text-align: center;
-      margin-bottom: 12px;
-      width: 100%;
-    }
-    #mode-display {
-      font-size: 2em;
-      font-weight: bold;
-      letter-spacing: 4px;
-    }
-    #mode-display.stby    { color: #ff6644; }
-    #mode-display.auto    { color: #00ff88; }
-    #mode-display.wind    { color: #44aaff; }
-    #mode-display.nav     { color: #ffcc00; }
-    #mode-display.nodrift { color: #aa88ff; }
-    #mode-display.nfu     { color: #ff8800; }
-    #heading-display { font-size: 1em; color: #aabbcc; margin-top: 2px; }
-
-    #hdg-controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      width: 100%;
-      margin-bottom: 8px;
+      font-size: 56px; font-weight: 800;
+      letter-spacing: 2px; line-height: 1;
+      margin-bottom: 16px; transition: color 0.2s;
+      color: #cc2200;
     }
 
-    #nfu-controls {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      margin-bottom: 8px;
+    .heading-box {
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 18px 12px; margin-bottom: 14px;
     }
-    #nfu-controls.active { display: flex; }
-
-    #wheel-label { font-size: 0.8em; color: #8899aa; margin-bottom: 6px; letter-spacing: 1px; }
-
-    #wheel-container {
-      width: 200px; height: 200px;
-      margin-bottom: 8px;
-      touch-action: none;
+    .heading-box-label {
+      font-size: 11px; color: #666; letter-spacing: 3px;
+      text-align: center; margin-bottom: 4px;
     }
-    #wheel-svg { width: 100%; height: 100%; cursor: grab; }
-
-    #rudder-bar-wrap {
-      width: 100%;
-      background: #1a2a3a;
-      border-radius: 8px;
-      height: 24px;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 3px;
+    #ap-hdg-value {
+      font-size: 72px; font-weight: 800; color: #fff;
+      text-align: center; line-height: 1; letter-spacing: -2px;
+      margin-bottom: 10px;
     }
-    #rudder-bar-port { position:absolute; right:50%; top:0; bottom:0; background:#44aaff; width:0; transition:width 0.1s; }
-    #rudder-bar-stbd { position:absolute; left:50%;  top:0; bottom:0; background:#ff6644; width:0; transition:width 0.1s; }
-    #rudder-centre   { position:absolute; left:50%;  top:0; bottom:0; width:2px; background:#556677; transform:translateX(-50%); }
-    #rudder-label { display:flex; justify-content:space-between; width:100%; font-size:0.72em; color:#556677; margin-bottom:8px; }
+    .heading-divider { border: none; border-top: 1px solid #2a2a2a; margin-bottom: 8px; }
+    .heading-secondary { display: flex; justify-content: space-between; padding: 0 4px; }
+    .heading-secondary span { font-size: 13px; color: #666; letter-spacing: 1px; }
+    .heading-secondary b { color: #ccc; font-weight: 700; }
 
-    #mode-controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 7px;
-      width: 100%;
-      margin-bottom: 8px;
+    /* Adjust buttons */
+    #adj-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 10px; margin-bottom: 14px; transition: opacity 0.2s;
+    }
+    #adj-grid.disabled { opacity: 0.25; pointer-events: none; }
+    #adj-grid.hidden   { display: none; }
+
+    .adj-btn {
+      border: 2px solid #aaa; border-radius: 4px; aspect-ratio: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; gap: 5px;
+    }
+    .adj-btn:active { background: #222; }
+    .adj-btn svg    { width: 26px; height: 26px; }
+    .adj-btn span   { font-size: 11px; color: #aaa; font-weight: 600; letter-spacing: 1px; }
+
+    /* Wheel */
+    #wheel-area {
+      display: none; flex-direction: column;
+      align-items: center; margin-bottom: 14px; gap: 8px;
+    }
+    #wheel-area.visible { display: flex; }
+    .wheel-hint { font-size: 10px; color: #555; letter-spacing: 2px; text-align: center; }
+    #wheel-svg  { touch-action: none; cursor: grab; }
+
+    .rudder-bar-wrap {
+      width: 100%; height: 14px; background: #1a1a1a;
+      border-radius: 4px; position: relative; overflow: hidden;
+    }
+    #rudder-bar-port { position: absolute; right: 50%; top: 0; bottom: 0; background: #2266aa; width: 0; }
+    #rudder-bar-stbd { position: absolute; left:  50%; top: 0; bottom: 0; background: #772299; width: 0; }
+    .rudder-centre   { position: absolute; left:  50%; top: 0; bottom: 0; width: 1px; background: #333; transform: translateX(-50%); }
+    .rudder-labels   { display: flex; justify-content: space-between; font-size: 10px; color: #444; font-weight: 700; letter-spacing: 1px; width: 100%; }
+
+    /* Bottom controls */
+    .ap-bottom { margin-top: auto; padding-bottom: 14px; }
+
+    .mode-row {
+      display: flex; align-items: center;
+      border: 1.5px solid #444; border-radius: 4px;
+      padding: 14px 16px; margin-bottom: 10px; cursor: pointer;
+    }
+    .mode-row:active { background: #1a1a1a; }
+    .mode-prefix { font-size: 14px; color: #888; font-weight: 600; letter-spacing: 1px; margin-right: 10px; flex-shrink: 0; }
+    #mode-value  { font-size: 18px; font-weight: 800; letter-spacing: 1px; flex: 1; color: #00cc55; }
+
+    .engage-btn {
+      border: 2px solid #006622; border-radius: 4px;
+      padding: 17px; display: flex; align-items: center;
+      justify-content: center; gap: 14px; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .engage-btn:active { opacity: 0.85; }
+    #engage-label { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: 2px; }
+
+    #conn { font-size: 11px; color: #444; text-align: center; margin-top: 8px; }
+
+    /* Mode popup */
+    .popup-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .popup-overlay.open { display: flex; }
+    .popup-sheet {
+      background: #1a1a1a; border-radius: 12px 12px 0 0;
+      width: 100%; max-width: 480px; padding: 16px 20px 32px;
+    }
+    .popup-handle { width: 36px; height: 4px; background: #333; border-radius: 2px; margin: 0 auto 18px; }
+    .popup-title  { font-size: 10px; color: #555; letter-spacing: 3px; margin-bottom: 12px; }
+    .mode-popup-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 14px; border-radius: 6px; margin-bottom: 7px;
+      cursor: pointer; border: 1.5px solid #222;
+    }
+    .mode-popup-row:active { opacity: 0.8; }
+    .mode-popup-name { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+    .mode-popup-desc { font-size: 10px; color: #555; margin-top: 2px; }
+    .mode-check {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 1.5px solid #333; display: flex;
+      align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 11px; font-weight: 800; color: #000;
     }
 
-    button {
-      background: #0d1e2e;
-      color: #445566;
-      border: 2px solid #1a2e40;
-      border-radius: 10px;
-      padding: 16px 4px;
-      font-size: 0.95em;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      -webkit-tap-highlight-color: transparent;
-      letter-spacing: 1px;
-    }
-
-    .btn-stby    { border-color:#5a2a1a; color:#7a4433; }
-    .btn-auto    { border-color:#1a4a2a; color:#336644; }
-    .btn-wind    { border-color:#1a3a5a; color:#336688; }
-    .btn-nav     { border-color:#4a4010; color:#776622; }
-    .btn-nodrift { border-color:#3a2a5a; color:#664488; }
-    .btn-nfu     { border-color:#4a2a10; color:#774422; }
-    .btn-hdg     { padding:18px 4px; font-size:1.1em; background:#1a3050; color:#aabbcc; border-color:#2a4060; }
-    .btn-hdg:active { background:#2a5080; }
-
-    .btn-stby.active    { background:#5a1a0a; border-color:#ff6644; color:#ff6644; box-shadow:0 0 12px #ff664466; }
-    .btn-auto.active    { background:#0a3a1a; border-color:#00ff88; color:#00ff88; box-shadow:0 0 12px #00ff8866; }
-    .btn-wind.active    { background:#0a1a3a; border-color:#44aaff; color:#44aaff; box-shadow:0 0 12px #44aaff66; }
-    .btn-nav.active     { background:#3a3000; border-color:#ffcc00; color:#ffcc00; box-shadow:0 0 12px #ffcc0066; }
-    .btn-nodrift.active { background:#2a0a3a; border-color:#aa88ff; color:#aa88ff; box-shadow:0 0 12px #aa88ff66; }
-    .btn-nfu.active     { background:#3a1a00; border-color:#ff8800; color:#ff8800; box-shadow:0 0 12px #ff880066; }
-
-    #conn { font-size: 0.7em; color: #445566; margin-top: 4px; }
-
-    /* ═══════════════════════════════════════════
+    /* ════════════════════════════════
        INSTRUMENTS SCREEN
-    ═══════════════════════════════════════════ */
+    ════════════════════════════════ */
+    .inst-screen-title {
+      font-size: 11px; color: #555; letter-spacing: 3px;
+      margin-bottom: 14px; font-weight: 600;
+    }
+
+    /* SOG — full width hero */
+    .inst-hero {
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 18px; margin-bottom: 10px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+    }
+    .inst-hero-left .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
+    .inst-hero-left .inst-big  { font-size: 64px; font-weight: 800; color: #00cc55; line-height: 1; letter-spacing: -2px; }
+    .inst-hero-left .inst-unit { font-size: 13px; color: #555; letter-spacing: 1px; margin-top: 2px; }
+    .inst-hero-right { text-align: right; padding-bottom: 6px; }
+    .inst-hero-right .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
+    .inst-hero-right .inst-sub  { font-size: 28px; font-weight: 800; color: #aaa; line-height: 1; }
+
+    /* 2-col grid for rest */
     .inst-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      width: 100%;
-      margin-top: 4px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; margin-bottom: 10px;
     }
     .inst-box {
-      background: #1a2a3a;
-      border-radius: 12px;
-      padding: 16px 10px 12px 10px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 12px;
     }
-    .inst-label {
-      font-size: 0.65em;
-      color: #8899aa;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-    .inst-value {
-      font-size: 2.4em;
-      font-weight: bold;
-      color: #fff;
-      line-height: 1;
-    }
-    .inst-unit {
-      font-size: 0.7em;
-      color: #556677;
-      letter-spacing: 1px;
-    }
-    .inst-value.depth { color: #44aaff; }
-    .inst-value.sog   { color: #00ff88; }
-    .inst-value.aws   { color: #ffcc00; }
-    .inst-value.awa   { color: #ff8800; }
+    .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
+    .inst-big  { font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+    .inst-unit { font-size: 11px; color: #555; letter-spacing: 1px; margin-top: 3px; }
 
-    /* Wind direction arrow */
-    #awa-arrow-wrap {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      margin-top: 4px;
-    }
-    #awa-svg { width: 44px; height: 44px; }
-
-    /* ═══════════════════════════════════════════
-       AIS RADAR SCREEN
-    ═══════════════════════════════════════════ */
-    #ais-header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 0.7em;
-      color: #8899aa;
-    }
-    #ais-range-label { color: #44aaff; font-weight: bold; }
-    .ais-range-btn {
-      background: #1a2a3a;
-      border: 1px solid #2a4060;
-      color: #aabbcc;
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 1em;
-      cursor: pointer;
+    /* depth — full width bottom */
+    .inst-row {
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 18px; display: flex;
+      align-items: flex-end; justify-content: space-between;
     }
 
-    #radar-wrap {
-      width: 100%;
-      aspect-ratio: 1;
-      max-width: 340px;
-      position: relative;
+    /* Wind arrow */
+    .awa-arrow-wrap { display: flex; justify-content: flex-end; padding-bottom: 2px; }
+    #awa-svg { width: 40px; height: 40px; }
+
+    /* ════════════════════════════════
+       AIS SCREEN
+    ════════════════════════════════ */
+    .ais-screen-title {
+      font-size: 11px; color: #555; letter-spacing: 3px;
+      margin-bottom: 10px; font-weight: 600;
     }
-    #radar-svg { width: 100%; height: 100%; }
+    #ais-range-row {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px;
+    }
+    .range-label { font-size: 10px; color: #555; letter-spacing: 1px; flex-shrink: 0; }
+    .range-pills { display: flex; gap: 5px; flex-shrink: 0; }
+    .range-pill {
+      background: #1a1a1a; border: 1.5px solid #333;
+      color: #555; border-radius: 20px; padding: 4px 12px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+    .range-pill.active { border-color: #fff; color: #fff; }
+
+    #radar-wrap { width: 100%; aspect-ratio: 1; max-width: 100%; position: relative; }
+    #radar-svg  { width: 100%; height: 100%; }
 
     #ais-list {
-      width: 100%;
-      margin-top: 8px;
-      font-size: 0.68em;
-      color: #8899aa;
-      max-height: 100px;
-      overflow-y: auto;
+      width: 100%; margin-top: 8px;
+      overflow-y: auto; flex: 1;
     }
     .ais-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      border-bottom: 1px solid #1a2a3a;
-      color: #aabbcc;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid #222; cursor: pointer;
     }
-    .ais-row .mmsi { color: #556677; font-size: 0.9em; }
-    #ais-no-data { color: #445566; text-align: center; padding: 16px; font-size: 0.9em; }
+    .ais-row:active { background: #1a1a1a; }
+    .ais-name { font-size: 13px; font-weight: 700; color: #ff6644; }
+    .ais-sub  { font-size: 10px; color: #555; margin-top: 1px; }
+    .ais-dist { text-align: right; font-size: 13px; font-weight: 700; color: #ccc; }
+    .ais-brg  { font-size: 10px; color: #555; text-align: right; margin-top: 1px; }
+    #ais-no-data { color: #444; text-align: center; padding: 20px; font-size: 13px; }
 
-    /* ── AIS Target popup ── */
+    /* AIS target popup */
     #ais-popup {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 200;
+      align-items: flex-end; justify-content: center;
     }
     #ais-popup.visible { display: flex; }
     #ais-popup-card {
-      background: #1a2a3a;
-      border: 1px solid #2a4a6a;
-      border-radius: 14px;
-      padding: 20px;
-      width: 290px;
-      position: relative;
+      background: #1a1a1a; border-radius: 12px 12px 0 0;
+      width: 100%; max-width: 480px; padding: 16px 20px 32px;
     }
     #ais-popup-name {
-      font-size: 1.3em; font-weight: bold;
-      color: #ff6644; margin-bottom: 14px;
-      letter-spacing: 1px;
+      font-size: 20px; font-weight: 800; color: #ff6644;
+      margin-bottom: 14px; letter-spacing: 1px;
     }
     .popup-row {
       display: flex; justify-content: space-between;
-      padding: 5px 0; border-bottom: 1px solid #1a3050;
-      font-size: 0.85em;
+      padding: 8px 0; border-bottom: 1px solid #222; font-size: 13px;
     }
     .popup-row:last-child { border-bottom: none; }
-    .popup-key   { color: #8899aa; }
-    .popup-value { color: #fff; font-weight: bold; }
+    .popup-key   { color: #555; }
+    .popup-value { color: #fff; font-weight: 700; }
     #ais-popup-close {
-      margin-top: 16px; width: 100%;
-      background: #2a3a4a; border: 1px solid #3a5a7a;
-      color: #aabbcc; border-radius: 8px;
-      padding: 10px; font-size: 0.9em; cursor: pointer;
+      margin-top: 16px; width: 100%; background: #222;
+      border: 1.5px solid #333; color: #ccc;
+      border-radius: 4px; padding: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px;
     }
-    #ais-popup-close:active { background: #3a5a7a; }
+    #ais-popup-close:active { background: #2a2a2a; }
   </style>
 </head>
 <body>
 
-  <!-- ═══ SCREEN CONTAINER ═══ -->
-  <div id="screens">
+<div id="screens">
 
-    <!-- ── Autopilot screen ── -->
-    <div id="screen-ap" class="screen active">
-      <div id="ap-status">
-        <div id="mode-display" class="stby">STBY</div>
-        <div id="heading-display">HDG: ---&deg;</div>
-      </div>
+  <!-- ════ AUTOPILOT ════ -->
+  <div id="screen-ap" class="screen active">
 
-      <div id="hdg-controls">
-        <button class="btn-hdg" onclick="send('PORT10')">&lt;&lt; 10&deg;</button>
-        <button class="btn-hdg" onclick="send('STBD10')">10&deg; &gt;&gt;</button>
-        <button class="btn-hdg" onclick="send('PORT1')">&lt; 1&deg;</button>
-        <button class="btn-hdg" onclick="send('STBD1')">1&deg; &gt;</button>
-      </div>
-
-      <div id="nfu-controls">
-        <div id="wheel-label">DRAG TO STEER &mdash; RETURN TO CENTRE TO STOP</div>
-        <div id="wheel-container">
-          <svg id="wheel-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="110" cy="110" r="100" fill="#1a2a3a" stroke="#2a4a6a" stroke-width="3"/>
-            <g id="grip-marks" stroke="#3a6a9a" stroke-width="3" stroke-linecap="round">
-              <line x1="110" y1="18" x2="110" y2="34"/>
-              <line x1="110" y1="186" x2="110" y2="202"/>
-              <line x1="18" y1="110" x2="34" y2="110"/>
-              <line x1="186" y1="110" x2="202" y2="110"/>
-              <line x1="39.4" y1="39.4" x2="50.8" y2="50.8"/>
-              <line x1="169.2" y1="169.2" x2="180.6" y2="180.6"/>
-              <line x1="180.6" y1="39.4" x2="169.2" y2="50.8"/>
-              <line x1="50.8" y1="169.2" x2="39.4" y2="180.6"/>
-            </g>
-            <g id="spokes" stroke="#2a5080" stroke-width="6" stroke-linecap="round">
-              <line x1="110" y1="30" x2="110" y2="80"/>
-              <line x1="110" y1="140" x2="110" y2="190"/>
-              <line x1="30" y1="110" x2="80" y2="110"/>
-              <line x1="140" y1="110" x2="190" y2="110"/>
-            </g>
-            <circle cx="110" cy="110" r="22" fill="#1a3050" stroke="#3a6a9a" stroke-width="3"/>
-            <circle id="indicator" cx="110" cy="35" r="7" fill="#ff8800"/>
-          </svg>
-        </div>
-        <div id="rudder-bar-wrap">
-          <div id="rudder-bar-port"></div>
-          <div id="rudder-bar-stbd"></div>
-          <div id="rudder-centre"></div>
-        </div>
-        <div id="rudder-label"><span>PORT</span><span>STBD</span></div>
-      </div>
-
-      <div id="mode-controls">
-        <button id="btn-stby"    class="btn-stby    active" onclick="send('MODE:STBY')">STBY</button>
-        <button id="btn-auto"    class="btn-auto"           onclick="send('MODE:AUTO')">AUTO</button>
-        <button id="btn-wind"    class="btn-wind"           onclick="send('MODE:WIND')">WIND</button>
-        <button id="btn-nav"     class="btn-nav"            onclick="send('MODE:NAV')">NAV</button>
-        <button id="btn-nodrift" class="btn-nodrift"        onclick="send('MODE:NODRIFT')">NO DRIFT</button>
-        <button id="btn-nfu"     class="btn-nfu"            onclick="send('MODE:NFU')">DIRECT</button>
-      </div>
-
-      <div id="conn">Connecting...</div>
+    <div class="ap-topbar">
+      <div class="ap-label">AUTOPILOT</div>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
     </div>
 
-    <!-- ── Instruments screen ── -->
-    <div id="screen-inst" class="screen">
-      <div class="inst-grid">
-        <div class="inst-box">
-          <div class="inst-label">Depth</div>
-          <div class="inst-value depth" id="inst-depth">---</div>
-          <div class="inst-unit">metres</div>
-        </div>
-        <div class="inst-box">
-          <div class="inst-label">Speed</div>
-          <div class="inst-value sog" id="inst-sog">---</div>
-          <div class="inst-unit">knots SOG</div>
-        </div>
-        <div class="inst-box">
-          <div class="inst-label">Wind Speed</div>
-          <div class="inst-value aws" id="inst-aws">---</div>
-          <div class="inst-unit">knots AWS</div>
-        </div>
-        <div class="inst-box">
-          <div class="inst-label">Wind Angle</div>
-          <div class="inst-value awa" id="inst-awa">---</div>
-          <div class="inst-unit">deg apparent</div>
-          <div id="awa-arrow-wrap">
-            <svg id="awa-svg" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="22" cy="22" r="20" fill="#1a3050" stroke="#2a4060" stroke-width="1.5"/>
-              <!-- Arrow group, rotated by JS -->
-              <g id="awa-arrow" transform="rotate(0,22,22)">
-                <polygon points="22,4 26,28 22,24 18,28" fill="#ff8800"/>
-              </g>
-              <!-- N marker -->
-              <text x="22" y="40" text-anchor="middle" font-size="7" fill="#556677">S</text>
-              <text x="22" y="9"  text-anchor="middle" font-size="7" fill="#aabbcc">F</text>
-              <text x="6"  y="25" text-anchor="middle" font-size="7" fill="#556677">P</text>
-              <text x="38" y="25" text-anchor="middle" font-size="7" fill="#556677">S</text>
-            </svg>
-          </div>
-        </div>
+    <div id="ap-status">STANDBY</div>
+
+    <div class="heading-box">
+      <div class="heading-box-label">HEADING</div>
+      <div id="ap-hdg-value">---&deg;</div>
+      <hr class="heading-divider">
+      <div class="heading-secondary">
+        <span>ACTUAL: <b id="actual-hdg">---&deg;</b></span>
+        <span>RUDDER: <b id="rudder-val">---</b></span>
       </div>
     </div>
 
-    <!-- ── AIS Radar screen ── -->
-    <div id="screen-ais" class="screen">
-      <div id="ais-header">
-        <button class="ais-range-btn" onclick="changeRange(-1)">&#8722;</button>
-        <span>Range: <span id="ais-range-label">5 nm</span></span>
-        <button class="ais-range-btn" onclick="changeRange(1)">&#43;</button>
+    <div id="adj-grid" class="disabled">
+      <div class="adj-btn" onclick="apAdjust(-10)">
+        <svg viewBox="0 0 28 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 9 12 16 6"/><polyline points="22 18 15 12 22 6"/>
+        </svg>
+        <span>10&deg;</span>
       </div>
+      <div class="adj-btn" onclick="apAdjust(-1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        <span>1&deg;</span>
+      </div>
+      <div class="adj-btn" onclick="apAdjust(1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+        <span>1&deg;</span>
+      </div>
+      <div class="adj-btn" onclick="apAdjust(10)">
+        <svg viewBox="0 0 28 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 18 13 12 6 6"/><polyline points="12 18 19 12 12 6"/>
+        </svg>
+        <span>10&deg;</span>
+      </div>
+    </div>
 
-      <div id="radar-wrap">
-        <svg id="radar-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
-          <!-- Range rings -->
-          <circle cx="170" cy="170" r="170" fill="#080f1a" stroke="#1a2a3a" stroke-width="1"/>
-          <circle cx="170" cy="170" r="127" fill="none" stroke="#1a2a3a" stroke-width="1"/>
-          <circle cx="170" cy="170" r="85"  fill="none" stroke="#1a2a3a" stroke-width="1"/>
-          <circle cx="170" cy="170" r="42"  fill="none" stroke="#1a2a3a" stroke-width="1"/>
-          <!-- Cross hairs -->
-          <line x1="170" y1="0"   x2="170" y2="340" stroke="#1a2a3a" stroke-width="1"/>
-          <line x1="0"   y1="170" x2="340" y2="170" stroke="#1a2a3a" stroke-width="1"/>
-          <!-- Ring labels -->
-          <text x="173" y="48"  font-size="9" fill="#2a4060" id="ring-label-4"></text>
-          <text x="173" y="90"  font-size="9" fill="#2a4060" id="ring-label-3"></text>
-          <text x="173" y="132" font-size="9" fill="#2a4060" id="ring-label-2"></text>
-          <text x="173" y="174" font-size="9" fill="#2a4060" id="ring-label-1"></text>
-          <!-- N indicator -->
-          <text x="170" y="14" text-anchor="middle" font-size="11" fill="#44aaff" font-weight="bold">N</text>
-          <!-- Own vessel -->
-          <polygon points="170,158 175,178 170,174 165,178" fill="#00ff88"/>
-          <!-- AIS targets rendered here by JS -->
-          <g id="ais-targets-group"></g>
+    <div id="wheel-area">
+      <div class="wheel-hint">DRAG TO STEER &middot; RETURN TO CENTRE TO STOP</div>
+      <svg id="wheel-svg" width="200" height="200" viewBox="0 0 220 220">
+        <circle cx="110" cy="110" r="100" fill="#1a1a1a" stroke="#333" stroke-width="2"/>
+        <g id="wg" stroke="#444" stroke-width="3" stroke-linecap="round">
+          <line x1="110" y1="18" x2="110" y2="34"/><line x1="110" y1="186" x2="110" y2="202"/>
+          <line x1="18" y1="110" x2="34" y2="110"/><line x1="186" y1="110" x2="202" y2="110"/>
+          <line x1="39.4" y1="39.4" x2="50.8" y2="50.8"/><line x1="169.2" y1="169.2" x2="180.6" y2="180.6"/>
+          <line x1="180.6" y1="39.4" x2="169.2" y2="50.8"/><line x1="50.8" y1="169.2" x2="39.4" y2="180.6"/>
+        </g>
+        <g id="ws" stroke="#333" stroke-width="8" stroke-linecap="round">
+          <line x1="110" y1="30" x2="110" y2="80"/><line x1="110" y1="140" x2="110" y2="190"/>
+          <line x1="30" y1="110" x2="80" y2="110"/><line x1="140" y1="110" x2="190" y2="110"/>
+        </g>
+        <circle cx="110" cy="110" r="24" fill="#111" stroke="#444" stroke-width="2"/>
+        <circle id="wind-ind" cx="110" cy="35" r="8" fill="#ff8800"/>
+      </svg>
+      <div class="rudder-bar-wrap">
+        <div id="rudder-bar-port"></div>
+        <div id="rudder-bar-stbd"></div>
+        <div class="rudder-centre"></div>
+      </div>
+      <div class="rudder-labels"><span>&laquo; PORT</span><span>STBD &raquo;</span></div>
+    </div>
+
+    <div class="ap-bottom">
+      <div class="mode-row" onclick="openModePopup()">
+        <span class="mode-prefix">MODE:</span>
+        <span id="mode-value">HEADING</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
         </svg>
       </div>
+      <div class="engage-btn" id="engage-btn" onclick="toggleEngage()" style="background:#111;">
+        <svg id="engage-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+        </svg>
+        <span id="engage-label">ENGAGE</span>
+      </div>
+      <div id="conn">Connecting...</div>
+    </div>
+  </div>
 
-      <div id="ais-list">
-        <div id="ais-no-data">No AIS targets</div>
+  <!-- ════ INSTRUMENTS ════ -->
+  <div id="screen-inst" class="screen">
+    <div class="inst-screen-title">INSTRUMENTS</div>
+
+    <div class="inst-hero">
+      <div class="inst-hero-left">
+        <div class="inst-lbl">SPEED OVER GROUND</div>
+        <div class="inst-big" id="inst-sog" style="color:#00cc55;">---</div>
+        <div class="inst-unit">knots</div>
+      </div>
+      <div class="inst-hero-right">
+        <div class="inst-lbl">COG</div>
+        <div class="inst-sub" id="inst-cog">---&deg;</div>
       </div>
     </div>
 
-  </div><!-- /screens -->
+    <div class="inst-grid">
+      <div class="inst-box">
+        <div class="inst-lbl">WIND SPEED</div>
+        <div class="inst-big" id="inst-aws" style="color:#ffcc00;">---</div>
+        <div class="inst-unit">knots AWS</div>
+      </div>
+      <div class="inst-box">
+        <div class="inst-lbl">WIND ANGLE</div>
+        <div class="inst-big" id="inst-awa" style="color:#ff8800;">---</div>
+        <div class="inst-unit">apparent</div>
+        <div class="awa-arrow-wrap">
+          <svg id="awa-svg" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22" cy="22" r="20" fill="#1a1a1a" stroke="#333" stroke-width="1.5"/>
+            <g id="awa-arrow" transform="rotate(0,22,22)">
+              <polygon points="22,4 26,28 22,24 18,28" fill="#ff8800"/>
+            </g>
+            <text x="22" y="40" text-anchor="middle" font-size="7" fill="#444">S</text>
+            <text x="22" y="9"  text-anchor="middle" font-size="7" fill="#888">F</text>
+            <text x="6"  y="25" text-anchor="middle" font-size="7" fill="#444">P</text>
+            <text x="38" y="25" text-anchor="middle" font-size="7" fill="#444">S</text>
+          </svg>
+        </div>
+      </div>
+    </div>
 
-  <!-- ═══ AIS TARGET POPUP ═══ -->
-  <div id="ais-popup" onclick="closePopup(event)">
-    <div id="ais-popup-card">
-      <div id="ais-popup-name">---</div>
-      <div id="ais-popup-rows"></div>
-      <button id="ais-popup-close" onclick="closePopup()">Close</button>
+    <div class="inst-row">
+      <div>
+        <div class="inst-lbl">DEPTH</div>
+        <div class="inst-big" id="inst-depth" style="color:#44aaff;">---</div>
+        <div class="inst-unit">metres</div>
+      </div>
     </div>
   </div>
 
-  <!-- ═══ TAB BAR ═══ -->
-  <div id="tabbar">
-    <div class="tab active" onclick="showScreen('ap')" id="tab-ap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="2" x2="12" y2="6"/>
-        <line x1="12" y1="18" x2="12" y2="22"/>
-        <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
-        <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
-        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
-        <line x1="12" y1="12" x2="16" y2="8" stroke-width="2.2"/>
-      </svg>
-      PILOT
+  <!-- ════ AIS ════ -->
+  <div id="screen-ais" class="screen">
+    <div class="ais-screen-title">AIS RADAR</div>
+
+    <div id="ais-range-row">
+      <span class="range-label">RANGE</span>
+      <div class="range-pills">
+        <div class="range-pill" onclick="setRange(0)">0.5</div>
+        <div class="range-pill" onclick="setRange(1)">1</div>
+        <div class="range-pill" onclick="setRange(2)">2</div>
+        <div class="range-pill active" onclick="setRange(3)">5</div>
+        <div class="range-pill" onclick="setRange(4)">10</div>
+        <div class="range-pill" onclick="setRange(5)">20</div>
+      </div>
     </div>
-    <div class="tab" onclick="showScreen('inst')" id="tab-inst">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <rect x="3" y="3" width="18" height="18" rx="3"/>
-        <line x1="8" y1="17" x2="8" y2="11"/>
-        <line x1="12" y1="17" x2="12" y2="7"/>
-        <line x1="16" y1="17" x2="16" y2="13"/>
+
+    <div id="radar-wrap">
+      <svg id="radar-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="170" cy="170" r="170" fill="#0d0d0d" stroke="#222" stroke-width="1"/>
+        <circle cx="170" cy="170" r="127" fill="none" stroke="#222" stroke-width="1"/>
+        <circle cx="170" cy="170" r="85"  fill="none" stroke="#222" stroke-width="1"/>
+        <circle cx="170" cy="170" r="42"  fill="none" stroke="#222" stroke-width="1"/>
+        <line x1="170" y1="0"   x2="170" y2="340" stroke="#222" stroke-width="1"/>
+        <line x1="0"   y1="170" x2="340" y2="170" stroke="#222" stroke-width="1"/>
+        <text x="173" y="48"  font-size="9" fill="#333" id="ring-label-4"></text>
+        <text x="173" y="90"  font-size="9" fill="#333" id="ring-label-3"></text>
+        <text x="173" y="132" font-size="9" fill="#333" id="ring-label-2"></text>
+        <text x="173" y="174" font-size="9" fill="#333" id="ring-label-1"></text>
+        <text x="170" y="14" text-anchor="middle" font-size="11" fill="#555" font-weight="bold">N</text>
+        <polygon points="170,158 175,178 170,174 165,178" fill="#00cc55"/>
+        <g id="ais-targets-group"></g>
       </svg>
-      INSTR
     </div>
-    <div class="tab" onclick="showScreen('ais')" id="tab-ais">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <circle cx="12" cy="12" r="10"/>
-        <circle cx="12" cy="12" r="4"/>
-        <line x1="12" y1="2" x2="12" y2="8"/>
-        <line x1="12" y1="16" x2="12" y2="22"/>
-        <line x1="2" y1="12" x2="8" y2="12"/>
-        <line x1="16" y1="12" x2="22" y2="12"/>
-      </svg>
-      AIS
+
+    <div id="ais-list">
+      <div id="ais-no-data">No AIS targets</div>
     </div>
   </div>
+
+</div><!-- /screens -->
+
+<!-- Tab bar -->
+<div id="tabbar">
+  <div class="tab active" onclick="showScreen('ap')" id="tab-ap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
+      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+      <line x1="12" y1="12" x2="16" y2="8" stroke-width="2.2"/>
+    </svg>
+    PILOT
+  </div>
+  <div class="tab" onclick="showScreen('inst')" id="tab-inst">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <rect x="3" y="3" width="18" height="18" rx="3"/>
+      <line x1="8" y1="17" x2="8" y2="11"/>
+      <line x1="12" y1="17" x2="12" y2="7"/>
+      <line x1="16" y1="17" x2="16" y2="13"/>
+    </svg>
+    INSTR
+  </div>
+  <div class="tab" onclick="showScreen('ais')" id="tab-ais">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="8"/>
+      <line x1="12" y1="16" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="8" y2="12"/>
+      <line x1="16" y1="12" x2="22" y2="12"/>
+    </svg>
+    AIS
+  </div>
+</div>
+
+<!-- Mode popup -->
+<div class="popup-overlay" id="mode-popup" onclick="if(event.target===this)closeModePopup()">
+  <div class="popup-sheet">
+    <div class="popup-handle"></div>
+    <div class="popup-title">SELECT MODE</div>
+    <div id="mode-popup-list"></div>
+  </div>
+</div>
+
+<!-- AIS target popup -->
+<div id="ais-popup" onclick="closeAisPopup(event)">
+  <div id="ais-popup-card">
+    <div id="ais-popup-name">---</div>
+    <div id="ais-popup-rows"></div>
+    <button id="ais-popup-close" onclick="closeAisPopup()">CLOSE</button>
+  </div>
+</div>
 
 <script>
-  // ══════════════════════════════════════════════
-  // STATE
-  // ══════════════════════════════════════════════
-  const modeButtonMap = {
-    'STBY':'btn-stby','AUTO':'btn-auto','WIND':'btn-wind',
-    'NAV':'btn-nav','NODRIFT':'btn-nodrift','NFU':'btn-nfu'
+// ════════════════════════════════
+// WEBSOCKET
+// ════════════════════════════════
+let ws;
+function connect() {
+  ws = new WebSocket('ws://' + location.hostname + '/ws');
+  ws.onopen  = () => { document.getElementById('conn').textContent = 'Connected'; };
+  ws.onclose = () => {
+    document.getElementById('conn').textContent = 'Disconnected \u2014 retrying...';
+    apEngaged = false; updateEngageState();
+    setTimeout(connect, 2000);
   };
-
-  let state = {
-    mode: 'STBY', heading: -1, vessel: -1,
-    depth: -1, sog: -1, cog: -1,
-    aws: -1, awa: -1,
-    ownLat: null, ownLon: null,
-    targets: []
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      updateFromServer(d);
+    } catch(err) {}
   };
+}
 
-  let nfuInterval = null;
-  let wheelAngle  = 0;
+function wsSend(cmd) { if (ws && ws.readyState === 1) ws.send(cmd); }
 
-  // AIS radar range
-  const rangeOptions = [0.5, 1, 2, 5, 10, 20];
-  let rangeIdx = 3; // default 5nm
-  const RADAR_R = 170; // SVG radius in px
-
-  // ══════════════════════════════════════════════
-  // WEBSOCKET
-  // ══════════════════════════════════════════════
-  let ws;
-  function connect() {
-    ws = new WebSocket('ws://' + location.hostname + '/ws');
-    ws.onopen  = () => { document.getElementById('conn').textContent = 'Connected'; };
-    ws.onclose = () => {
-      document.getElementById('conn').textContent = 'Disconnected \u2014 retrying...';
-      stopNfu();
-      setTimeout(connect, 2000);
-    };
-    ws.onmessage = (e) => {
-      try {
-        const d = JSON.parse(e.data);
-        Object.assign(state, d);
-        updateAllScreens();
-      } catch(err) {}
-    };
-  }
-
-  function send(cmd) {
-    if (ws && ws.readyState === 1) ws.send(cmd);
-  }
-
-  // ══════════════════════════════════════════════
-  // SCREEN SWITCHING
-  // ══════════════════════════════════════════════
-  function showScreen(name) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('screen-' + name).classList.add('active');
-    document.getElementById('tab-' + name).classList.add('active');
-    if (name !== 'ap') stopNfu();
-  }
-
-  // ══════════════════════════════════════════════
-  // UPDATE ALL SCREENS FROM STATE
-  // ══════════════════════════════════════════════
-  function updateAllScreens() {
-    updateAutopilot();
-    updateInstruments();
-    updateAis();
-  }
-
-  // ── Autopilot ─────────────────────────────────
-  function updateAutopilot() {
-    const mode = state.mode || 'STBY';
-    const el = document.getElementById('mode-display');
-    el.textContent = mode;
-    el.className   = mode.toLowerCase().replace(' ','');
-
-    Object.values(modeButtonMap).forEach(id =>
-      document.getElementById(id).classList.remove('active'));
-    const aid = modeButtonMap[mode];
-    if (aid) document.getElementById(aid).classList.add('active');
-
-    const isNfu = mode === 'NFU';
-    document.getElementById('hdg-controls').style.display = isNfu ? 'none' : 'grid';
-    document.getElementById('nfu-controls').className     = isNfu ? 'active' : '';
-    if (!isNfu) stopNfu();
-
-    // FIX #2: heading display — use >= 0 not > 0 so heading 0 (due north) shows correctly
-    const h = parseFloat(state.heading);
-    document.getElementById('heading-display').textContent =
-      'HDG: ' + (h >= 0 ? h.toFixed(1) : '---') + '\u00B0';
-  }
-
-  // ── Instruments ───────────────────────────────
-  function fmt(val, dp) {
-    const v = parseFloat(val);
-    return (v >= 0) ? v.toFixed(dp) : '---';
-  }
-
-  function updateInstruments() {
-    document.getElementById('inst-depth').textContent = fmt(state.depth, 1);
-    document.getElementById('inst-sog').textContent   = fmt(state.sog,   1);
-    document.getElementById('inst-aws').textContent   = fmt(state.aws,   1);
-
-    const awa = parseFloat(state.awa);
-    if (awa >= 0) {
-      // Normalise to -180..+180 and display with P/S suffix
-      let display = awa > 180 ? awa - 360 : awa;
-      const side = display >= 0 ? 'S' : 'P';
-      document.getElementById('inst-awa').textContent = Math.abs(display).toFixed(0) + '\u00B0 ' + side;
-      document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
+function updateFromServer(d) {
+  // Autopilot
+  if (d.mode !== undefined) {
+    const modeMap = { STBY:'STANDBY', AUTO:'HEADING', NFU:'DIRECT', NODRIFT:'NO DRIFT', WIND:'WIND', NAV:'NAV' };
+    const display = modeMap[d.mode] || d.mode;
+    if (d.mode === 'STBY') {
+      apEngaged = false; updateEngageState();
     } else {
-      document.getElementById('inst-awa').textContent = '---';
-      document.getElementById('awa-arrow').setAttribute('transform', 'rotate(0,22,22)');
+      apEngaged = true;
+      currentMode = display;
+      setModeDisplay(display);
+      updateEngageState();
     }
   }
-
-  // ── AIS Radar ─────────────────────────────────
-  function changeRange(dir) {
-    rangeIdx = Math.max(0, Math.min(rangeOptions.length - 1, rangeIdx + dir));
-    document.getElementById('ais-range-label').textContent = rangeOptions[rangeIdx] + ' nm';
-    updateRingLabels();
-    updateAis();
+  if (d.heading >= 0) {
+    document.getElementById('ap-hdg-value').textContent  = d.heading.toFixed(1) + '\u00B0';
+    document.getElementById('actual-hdg').textContent    = d.vessel >= 0 ? d.vessel.toFixed(1) + '\u00B0' : '---\u00B0';
   }
-
-  function updateRingLabels() {
-    const r = rangeOptions[rangeIdx];
-    // 4 rings at 25%, 50%, 75%, 100% of range
-    ['1','2','3','4'].forEach((i, idx) => {
-      const nm = (r * (idx + 1) / 4).toFixed(r < 2 ? 2 : 1);
-      document.getElementById('ring-label-' + i).textContent = nm + 'nm';
-    });
+  // Instruments
+  if (d.sog   !== undefined && d.sog   >= 0) document.getElementById('inst-sog').textContent   = d.sog.toFixed(1);
+  if (d.cog   !== undefined && d.cog   >= 0) document.getElementById('inst-cog').textContent   = d.cog.toFixed(0) + '\u00B0';
+  if (d.aws   !== undefined && d.aws   >= 0) document.getElementById('inst-aws').textContent   = d.aws.toFixed(1);
+  if (d.depth !== undefined && d.depth >= 0) document.getElementById('inst-depth').textContent = d.depth.toFixed(1);
+  if (d.awa   !== undefined && d.awa   >= 0) {
+    let awa = d.awa; let side = awa > 180 ? 'P' : 'S';
+    let disp = awa > 180 ? 360 - awa : awa;
+    document.getElementById('inst-awa').textContent = disp.toFixed(0) + '\u00B0 ' + side;
+    document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
   }
+  // AIS
+  if (d.ownLat !== undefined) { ownLat = d.ownLat; ownLon = d.ownLon; }
+  if (d.targets !== undefined) { aisTargets = d.targets; updateAisDisplay(); }
+}
 
-  function latLonToRadar(lat, lon, ownLat, ownLon, rangeNm) {
-    // Convert lat/lon offset to radar SVG coordinates
-    const dLat = (lat - ownLat) * 60;  // nautical miles
-    const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
-    const scale = RADAR_R / rangeNm;
-    // North up: x = east, y = north (inverted for SVG)
-    return {
-      x: 170 + dLon * scale,
-      y: 170 - dLat * scale
-    };
+// ════════════════════════════════
+// SCREEN SWITCHING
+// ════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name !== 'ap') stopNfu();
+}
+
+// ════════════════════════════════
+// AUTOPILOT
+// ════════════════════════════════
+const AP_MODES = [
+  { key:'HEADING',  wsKey:'AUTO',    color:'#00cc55', bg:'#051a0a', bd:'#006622', desc:'Hold compass heading' },
+  { key:'WIND',     wsKey:'WIND',    color:'#44aaff', bg:'#021833', bd:'#1a5a99', desc:'Hold apparent wind angle' },
+  { key:'NO DRIFT', wsKey:'NODRIFT', color:'#aa88ff', bg:'#150a2a', bd:'#5533aa', desc:'Hold GPS track over ground' },
+  { key:'NAV',      wsKey:'NAV',     color:'#ffcc00', bg:'#1a1500', bd:'#887700', desc:'Follow active GPS route' },
+  { key:'DIRECT',   wsKey:'NFU',     color:'#ff8800', bg:'#1a0d00', bd:'#884400', desc:'Steering wheel control' },
+];
+
+let apEngaged    = false;
+let currentMode  = 'HEADING';
+let lockedHdg    = 0;
+let nfuRate      = 0;
+let nfuInterval  = null;
+let wheelAngle   = 0;
+let wDragging    = false;
+let wLastAng     = 0;
+const MAX_ANG    = 270;
+const WCX = 110, WCY = 110;
+
+function getModeObj(key) { return AP_MODES.find(m => m.key === key); }
+
+function setModeDisplay(key) {
+  const m = getModeObj(key);
+  if (!m) return;
+  document.getElementById('mode-value').textContent  = key;
+  document.getElementById('mode-value').style.color  = m.color;
+}
+
+function updateControls() {
+  const adj   = document.getElementById('adj-grid');
+  const wheel = document.getElementById('wheel-area');
+  const isDirect = currentMode === 'DIRECT';
+  if (isDirect && apEngaged) {
+    adj.classList.add('hidden');
+    wheel.classList.add('visible');
+  } else {
+    wheel.classList.remove('visible');
+    adj.classList.remove('hidden');
+    adj.classList.toggle('disabled', !apEngaged);
   }
+}
 
-  function updateAis() {
-    updateRingLabels();
-    const grp  = document.getElementById('ais-targets-group');
-    const list = document.getElementById('ais-list');
-    const targets = state.targets || [];
-    const rangeNm = rangeOptions[rangeIdx];
-
-    grp.innerHTML  = '';
-    list.innerHTML = '';
-
-    if (!targets.length || !state.ownLat) {
-      list.innerHTML = '<div id="ais-no-data">No AIS targets</div>';
-      return;
-    }
-
-    let visibleCount = 0;
-    targets.forEach(t => {
-      const pos = latLonToRadar(t.lat, t.lon, state.ownLat, state.ownLon, rangeNm);
-      const inRange = pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
-
-      // Draw COG vector and target triangle on radar
-      if (inRange) {
-        visibleCount++;
-        // COG vector line (scaled to ~10min travel)
-        if (t.sog > 0.5) {
-          const vecLen = (t.sog / 60 * 10) * (RADAR_R / rangeNm); // 10min vector
-          const cogRad = t.cog * Math.PI / 180;
-          const vx = pos.x + Math.sin(cogRad) * vecLen;
-          const vy = pos.y - Math.cos(cogRad) * vecLen;
-          const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-          line.setAttribute('x1', pos.x); line.setAttribute('y1', pos.y);
-          line.setAttribute('x2', vx);    line.setAttribute('y2', vy);
-          line.setAttribute('stroke','#ff880066'); line.setAttribute('stroke-width','1.5');
-          grp.appendChild(line);
-        }
-
-        // Compute bearing/distance once for both radar and list popup
-        const bd = state.ownLat ? bearingDistance(state.ownLat, state.ownLon, t.lat, t.lon) : null;
-
-        // Target triangle
-        const tri = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        const cogRad = (t.cog || 0) * Math.PI / 180;
-        const s = 7;
-        const p1x = pos.x + Math.sin(cogRad) * s;
-        const p1y = pos.y - Math.cos(cogRad) * s;
-        const p2x = pos.x + Math.sin(cogRad + 2.4) * (s * 0.7);
-        const p2y = pos.y - Math.cos(cogRad + 2.4) * (s * 0.7);
-        const p3x = pos.x + Math.sin(cogRad - 2.4) * (s * 0.7);
-        const p3y = pos.y - Math.cos(cogRad - 2.4) * (s * 0.7);
-        tri.setAttribute('points', p1x+','+p1y+' '+p2x+','+p2y+' '+p3x+','+p3y);
-        tri.setAttribute('fill','#ff6644');
-        tri.setAttribute('stroke','#ff4422');
-        tri.setAttribute('stroke-width','1');
-        tri.style.cursor = 'pointer';
-        tri.addEventListener('click', () => openPopup(t, bd));
-        grp.appendChild(tri);
-
-        // Transparent hit area -- larger tap target than the triangle alone
-        const hit = document.createElementNS('http://www.w3.org/2000/svg','circle');
-        hit.setAttribute('cx', pos.x); hit.setAttribute('cy', pos.y);
-        hit.setAttribute('r','14');
-        hit.setAttribute('fill','transparent');
-        hit.style.cursor = 'pointer';
-        hit.addEventListener('click', () => openPopup(t, bd));
-        grp.appendChild(hit);
-
-        // Name label
-        if (t.name) {
-          const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
-          txt.setAttribute('x', pos.x + 9); txt.setAttribute('y', pos.y + 4);
-          txt.setAttribute('font-size','9'); txt.setAttribute('fill','#aabbcc');
-          txt.style.cursor = 'pointer';
-          txt.textContent = t.name.trim();
-          txt.addEventListener('click', () => openPopup(t, bd));
-          grp.appendChild(txt);
-        }
-      }
-
-      // List entry -- always shown, tappable for popup
-      const row = document.createElement('div');
-      row.className = 'ais-row';
-      row.style.cursor = 'pointer';
-      const name = (t.name && t.name.trim()) ? t.name.trim() : '---';
-      const rowBd = state.ownLat ? bearingDistance(state.ownLat, state.ownLon, t.lat, t.lon) : null;
-      row.innerHTML =
-        '<span>' + name + '</span>' +
-        '<span>' + (rowBd ? rowBd.dist.toFixed(1) + 'nm ' + rowBd.brg.toFixed(0) + '\u00B0' : '') + '</span>' +
-        '<span class="mmsi">' + t.mmsi + '</span>';
-      row.addEventListener('click', () => openPopup(t, rowBd));
-      list.appendChild(row);
-    });
-
-    if (!visibleCount && targets.length) {
-      const d = document.createElement('div');
-      d.id = 'ais-no-data';
-      d.textContent = targets.length + ' target(s) outside range';
-      list.prepend(d);
-    }
+function updateEngageState() {
+  const btn    = document.getElementById('engage-btn');
+  const lbl    = document.getElementById('engage-label');
+  const icon   = document.getElementById('engage-icon');
+  const status = document.getElementById('ap-status');
+  const m      = getModeObj(currentMode);
+  if (apEngaged) {
+    btn.style.borderColor = '#880000';
+    btn.style.background  = '#1a0000';
+    lbl.textContent = 'STANDBY';
+    icon.setAttribute('stroke', '#ff4422');
+    status.textContent = currentMode;
+    status.style.color = m ? m.color : '#fff';
+  } else {
+    btn.style.borderColor = '#006622';
+    btn.style.background  = '#111';
+    lbl.textContent = 'ENGAGE';
+    icon.setAttribute('stroke', '#fff');
+    status.textContent = 'STANDBY';
+    status.style.color = '#cc2200';
+    document.getElementById('ap-hdg-value').textContent  = '---\u00B0';
+    document.getElementById('actual-hdg').textContent    = '---\u00B0';
+    document.getElementById('rudder-val').textContent    = '---';
   }
+  updateControls();
+}
 
-  function bearingDistance(lat1, lon1, lat2, lon2) {
-    const R = 3440.065; // nm
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 +
-              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
-    const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) -
-              Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
-    const brg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    return { dist, brg };
+function toggleEngage() {
+  apEngaged = !apEngaged;
+  if (apEngaged) {
+    const m = getModeObj(currentMode);
+    wsSend('MODE:' + (m ? m.wsKey : 'AUTO'));
+    lockedHdg = 247;
+    document.getElementById('ap-hdg-value').textContent  = lockedHdg + '\u00B0';
+    document.getElementById('actual-hdg').textContent    = (lockedHdg + 1) + '\u00B0';
+    document.getElementById('rudder-val').textContent    = '+2\u00B0';
+  } else {
+    stopNfu();
+    wsSend('MODE:STBY');
   }
+  updateEngageState();
+}
 
-  // ══════════════════════════════════════════════
-  // AIS POPUP
-  // ══════════════════════════════════════════════
-  function openPopup(t, bd) {
-    const name = (t.name && t.name.trim()) ? t.name.trim() : 'Unknown';
-    document.getElementById('ais-popup-name').textContent = name;
-    const rows = [
-      ['MMSI',     t.mmsi],
-      ['SOG',      (t.sog != null ? t.sog.toFixed(1) + ' kn' : '---')],
-      ['COG',      (t.cog != null ? t.cog.toFixed(0) + '\u00B0' : '---')],
-      ['Bearing',  (bd ? bd.brg.toFixed(1) + '\u00B0' : '---')],
-      ['Distance', (bd ? bd.dist.toFixed(2) + ' nm' : '---')],
-      ['Position', t.lat.toFixed(4) + '\u00B0N  ' + t.lon.toFixed(4) + '\u00B0E'],
-    ];
-    const rowsEl = document.getElementById('ais-popup-rows');
-    rowsEl.innerHTML = rows.map(([k,v]) =>
-      '<div class="popup-row"><span class="popup-key">' + k +
-      '</span><span class="popup-value">' + v + '</span></div>'
-    ).join('');
-    document.getElementById('ais-popup').classList.add('visible');
+function apAdjust(deg) {
+  if (!apEngaged || currentMode === 'DIRECT') return;
+  if (deg === -1)  wsSend('PORT1');
+  if (deg === 1)   wsSend('STBD1');
+  if (deg === -10) wsSend('PORT10');
+  if (deg === 10)  wsSend('STBD10');
+  lockedHdg = (lockedHdg + deg + 360) % 360;
+  document.getElementById('ap-hdg-value').textContent = lockedHdg + '\u00B0';
+}
+
+// ── Mode popup ──────────────────────────────────
+function buildModePopup() {
+  const list = document.getElementById('mode-popup-list');
+  list.innerHTML = '';
+  AP_MODES.forEach(m => {
+    const active = m.key === currentMode;
+    const row = document.createElement('div');
+    row.className = 'mode-popup-row';
+    row.style.background  = active ? m.bg  : 'transparent';
+    row.style.borderColor = active ? m.bd  : '#222';
+    row.innerHTML =
+      '<div><div class="mode-popup-name" style="color:' + m.color + '">' + m.key + '</div>' +
+      '<div class="mode-popup-desc">' + m.desc + '</div></div>' +
+      '<div class="mode-check" style="' + (active ? 'background:'+m.color+';border:none;' : '') + '">' +
+      (active ? '\u2713' : '') + '</div>';
+    row.onclick = () => selectMode(m.key);
+    list.appendChild(row);
+  });
+}
+
+function openModePopup()  { buildModePopup(); document.getElementById('mode-popup').classList.add('open'); }
+function closeModePopup() { document.getElementById('mode-popup').classList.remove('open'); }
+
+function selectMode(key) {
+  currentMode = key;
+  setModeDisplay(key);
+  const m = getModeObj(key);
+  if (apEngaged && m) {
+    wsSend('MODE:' + m.wsKey);
+    document.getElementById('ap-status').textContent = key;
+    document.getElementById('ap-status').style.color = m.color;
   }
+  updateControls();
+  setTimeout(closeModePopup, 200);
+}
 
-  function closePopup(e) {
-    if (!e || e.target === document.getElementById('ais-popup') ||
-        e.target === document.getElementById('ais-popup-close')) {
-      document.getElementById('ais-popup').classList.remove('visible');
-    }
+// ── NFU wheel ───────────────────────────────────
+function stopNfu() {
+  nfuRate = 0; wheelAngle = 0;
+  rotateWheel(0); updateBars(0);
+  if (nfuInterval) { clearInterval(nfuInterval); nfuInterval = null; }
+  wsSend('NFU:0');
+}
+
+function rotateWheel(a) {
+  const t = 'rotate(' + a + ',' + WCX + ',' + WCY + ')';
+  ['wg','ws','wind-ind'].forEach(id => { const el = document.getElementById(id); if (el) el.setAttribute('transform', t); });
+}
+
+function updateBars(a) {
+  const rate = Math.round((a / MAX_ANG) * 100);
+  document.getElementById('rudder-bar-port').style.width = rate < 0 ? Math.abs(rate / 2) + '%' : '0';
+  document.getElementById('rudder-bar-stbd').style.width = rate > 0 ? (rate / 2) + '%' : '0';
+}
+
+function getWheelAng(e) {
+  const wsvg = document.getElementById('wheel-svg');
+  const r = wsvg.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return Math.atan2(t.clientX - r.left - r.width / 2, -(t.clientY - r.top - r.height / 2)) * 180 / Math.PI;
+}
+
+function onWheelStart(e) { e.preventDefault(); wDragging = true; wLastAng = getWheelAng(e); }
+function onWheelMove(e) {
+  if (!wDragging) return; e.preventDefault();
+  let d = getWheelAng(e) - wLastAng; wLastAng = getWheelAng(e);
+  if (d > 180) d -= 360; if (d < -180) d += 360;
+  wheelAngle = Math.max(-MAX_ANG, Math.min(MAX_ANG, wheelAngle + d));
+  rotateWheel(wheelAngle); updateBars(wheelAngle);
+  const rate = Math.round((wheelAngle / MAX_ANG) * 100);
+  nfuRate = rate;
+  wsSend('NFU:' + rate);
+  if (rate !== 0 && !nfuInterval) {
+    nfuInterval = setInterval(() => wsSend('NFU:' + Math.round((wheelAngle / MAX_ANG) * 100)), 200);
+  } else if (rate === 0 && nfuInterval) {
+    clearInterval(nfuInterval); nfuInterval = null;
   }
+}
+function onWheelEnd() { wDragging = false; }
 
-  // ══════════════════════════════════════════════
-  // WHEEL / NFU
-  // ══════════════════════════════════════════════
-  const wheelSvg  = document.getElementById('wheel-svg');
-  const gripMarks = document.getElementById('grip-marks');
-  const spokes    = document.getElementById('spokes');
-  const indicator = document.getElementById('indicator');
-  const portBar   = document.getElementById('rudder-bar-port');
-  const stbdBar   = document.getElementById('rudder-bar-stbd');
+const wsvg = document.getElementById('wheel-svg');
+wsvg.addEventListener('mousedown',  onWheelStart);
+wsvg.addEventListener('touchstart', onWheelStart, { passive: false });
+window.addEventListener('mousemove', onWheelMove);
+wsvg.addEventListener('touchmove',  onWheelMove, { passive: false });
+window.addEventListener('mouseup',  onWheelEnd);
+wsvg.addEventListener('touchend',   onWheelEnd);
 
-  // MAX_ANGLE = 270: three-quarter turn gives full rudder rate.
-  // Increase to make wheel less sensitive.
-  const CX = 110, CY = 110, MAX_ANGLE = 270;
-  let isDragging = false, lastAngle = 0;
+// ════════════════════════════════
+// AIS
+// ════════════════════════════════
+const RANGE_OPTIONS = [0.5, 1, 2, 5, 10, 20];
+let rangeIdx   = 3;
+let ownLat     = null, ownLon = null;
+let aisTargets = [];
 
-  function getAngleFromEvent(e) {
-    const rect  = wheelSvg.getBoundingClientRect();
-    const touch = e.touches ? e.touches[0] : e;
-    const x = touch.clientX - rect.left  - (rect.width  / 2);
-    const y = touch.clientY - rect.top   - (rect.height / 2);
-    return Math.atan2(x, -y) * (180 / Math.PI);
-  }
-
-  function onDragStart(e) { e.preventDefault(); isDragging = true; lastAngle = getAngleFromEvent(e); }
-
-  function onDragMove(e) {
-    if (!isDragging) return;
-    e.preventDefault();
-    const angle = getAngleFromEvent(e);
-    let delta = angle - lastAngle;
-    if (delta >  180) delta -= 360;
-    if (delta < -180) delta += 360;
-    lastAngle  = angle;
-    wheelAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, wheelAngle + delta));
-    applyWheelVisual(wheelAngle);
-    applyNfuRate(wheelAngle);
-  }
-
-  function onDragEnd(e) { isDragging = false; }
-
-  function applyWheelVisual(angle) {
-    const t = 'rotate(' + angle + ',' + CX + ',' + CY + ')';
-    gripMarks.setAttribute('transform', t);
-    spokes.setAttribute('transform', t);
-    indicator.setAttribute('transform', t);
-  }
-
-  function applyNfuRate(angle) {
-    const rate = Math.round((angle / MAX_ANGLE) * 100);
-    portBar.style.width = rate < 0 ? Math.abs(rate / 2) + '%' : '0';
-    stbdBar.style.width = rate > 0 ? (rate / 2) + '%' : '0';
-    send('NFU:' + rate);
-    if (rate !== 0 && !nfuInterval) {
-      nfuInterval = setInterval(() => send('NFU:' + Math.round((wheelAngle / MAX_ANGLE) * 100)), 200);
-    } else if (rate === 0 && nfuInterval) {
-      clearInterval(nfuInterval);
-      nfuInterval = null;
-    }
-  }
-
-  function stopNfu() {
-    wheelAngle = 0;
-    applyWheelVisual(0);
-    portBar.style.width = '0';
-    stbdBar.style.width = '0';
-    if (nfuInterval) { clearInterval(nfuInterval); nfuInterval = null; }
-    send('NFU:0');
-  }
-
-  wheelSvg.addEventListener('touchstart', onDragStart, { passive: false });
-  wheelSvg.addEventListener('touchmove',  onDragMove,  { passive: false });
-  wheelSvg.addEventListener('touchend',   onDragEnd);
-  wheelSvg.addEventListener('mousedown',  onDragStart);
-  window.addEventListener('mousemove',    onDragMove);
-  window.addEventListener('mouseup',      onDragEnd);
-
-  // Init
+function setRange(idx) {
+  rangeIdx = idx;
+  document.querySelectorAll('.range-pill').forEach((p, i) => p.classList.toggle('active', i === idx));
   updateRingLabels();
-  connect();
+  updateAisDisplay();
+}
+
+function updateRingLabels() {
+  const r = RANGE_OPTIONS[rangeIdx];
+  [1,2,3,4].forEach((n, i) => {
+    const nm = (r * (i + 1) / 4).toFixed(r < 2 ? 2 : 1);
+    document.getElementById('ring-label-' + n).textContent = nm + 'nm';
+  });
+}
+
+function latLonToRadar(lat, lon) {
+  if (!ownLat) return null;
+  const dLat = (lat - ownLat) * 60;
+  const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
+  const scale = 170 / RANGE_OPTIONS[rangeIdx];
+  return { x: 170 + dLon * scale, y: 170 - dLat * scale };
+}
+
+function bearingDistance(lat1, lon1, lat2, lon2) {
+  const R = 3440.065;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const y = Math.sin(dLon)*Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+  const brg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  return { dist, brg };
+}
+
+function updateAisDisplay() {
+  updateRingLabels();
+  const grp  = document.getElementById('ais-targets-group');
+  const list = document.getElementById('ais-list');
+  grp.innerHTML = ''; list.innerHTML = '';
+
+  if (!aisTargets.length) {
+    list.innerHTML = '<div id="ais-no-data">No AIS targets</div>'; return;
+  }
+
+  aisTargets.forEach(t => {
+    const pos = latLonToRadar(t.lat, t.lon);
+    const bd  = ownLat ? bearingDistance(ownLat, ownLon, t.lat, t.lon) : null;
+    const inRange = pos && pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
+
+    if (inRange && pos) {
+      const cogRad = (t.cogDeg || t.cog || 0) * Math.PI / 180;
+      const s = 8;
+      if ((t.sogKn || t.sog || 0) > 0.5) {
+        const vl = ((t.sogKn || t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', pos.x); line.setAttribute('y1', pos.y);
+        line.setAttribute('x2', pos.x + Math.sin(cogRad)*vl);
+        line.setAttribute('y2', pos.y - Math.cos(cogRad)*vl);
+        line.setAttribute('stroke','#ff660044'); line.setAttribute('stroke-width','1.5');
+        grp.appendChild(line);
+      }
+      const p1x = pos.x + Math.sin(cogRad)*s, p1y = pos.y - Math.cos(cogRad)*s;
+      const p2x = pos.x + Math.sin(cogRad+2.4)*(s*.7), p2y = pos.y - Math.cos(cogRad+2.4)*(s*.7);
+      const p3x = pos.x + Math.sin(cogRad-2.4)*(s*.7), p3y = pos.y - Math.cos(cogRad-2.4)*(s*.7);
+      const tri = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      tri.setAttribute('points', p1x+','+p1y+' '+p2x+','+p2y+' '+p3x+','+p3y);
+      tri.setAttribute('fill','#ff6644'); tri.setAttribute('stroke','#ff4422'); tri.setAttribute('stroke-width','1');
+      tri.style.cursor = 'pointer';
+      tri.addEventListener('click', () => openAisPopup(t, bd));
+      grp.appendChild(tri);
+      const hit = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      hit.setAttribute('cx', pos.x); hit.setAttribute('cy', pos.y); hit.setAttribute('r','14');
+      hit.setAttribute('fill','transparent'); hit.style.cursor = 'pointer';
+      hit.addEventListener('click', () => openAisPopup(t, bd));
+      grp.appendChild(hit);
+      if (t.name && t.name.trim()) {
+        const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        txt.setAttribute('x', pos.x + 10); txt.setAttribute('y', pos.y + 4);
+        txt.setAttribute('font-size','9'); txt.setAttribute('fill','#888');
+        txt.style.cursor = 'pointer';
+        txt.textContent = t.name.trim();
+        txt.addEventListener('click', () => openAisPopup(t, bd));
+        grp.appendChild(txt);
+      }
+    }
+
+    const row = document.createElement('div');
+    row.className = 'ais-row';
+    const name = (t.name && t.name.trim()) ? t.name.trim() : '---';
+    const sog  = (t.sogKn || t.sog || 0).toFixed(1);
+    const cog  = (t.cogDeg || t.cog || 0).toFixed(0);
+    row.innerHTML =
+      '<div><div class="ais-name">' + name + '</div><div class="ais-sub">' + sog + ' kn &middot; ' + cog + '\u00B0</div></div>' +
+      '<div><div class="ais-dist">' + (bd ? bd.dist.toFixed(1) + ' nm' : '---') + '</div>' +
+      '<div class="ais-brg">' + (bd ? bd.brg.toFixed(0) + '\u00B0' : '') + '</div></div>';
+    row.addEventListener('click', () => openAisPopup(t, bd));
+    list.appendChild(row);
+  });
+}
+
+function openAisPopup(t, bd) {
+  const name = (t.name && t.name.trim()) ? t.name.trim() : 'Unknown';
+  document.getElementById('ais-popup-name').textContent = name;
+  const rows = [
+    ['MMSI',     t.mmsi || '---'],
+    ['SOG',      ((t.sogKn || t.sog || 0).toFixed(1)) + ' kn'],
+    ['COG',      ((t.cogDeg || t.cog || 0).toFixed(0)) + '\u00B0'],
+    ['Bearing',  bd ? bd.brg.toFixed(1) + '\u00B0' : '---'],
+    ['Distance', bd ? bd.dist.toFixed(2) + ' nm' : '---'],
+    ['Position', (t.lat||0).toFixed(4) + '\u00B0N \u00A0 ' + (t.lon||0).toFixed(4) + '\u00B0E'],
+  ];
+  document.getElementById('ais-popup-rows').innerHTML = rows.map(([k,v]) =>
+    '<div class="popup-row"><span class="popup-key">' + k + '</span><span class="popup-value">' + v + '</span></div>'
+  ).join('');
+  document.getElementById('ais-popup').classList.add('visible');
+}
+
+function closeAisPopup(e) {
+  if (!e || e.target === document.getElementById('ais-popup') || e.target === document.getElementById('ais-popup-close')) {
+    document.getElementById('ais-popup').classList.remove('visible');
+  }
+}
+
+// ── Init ──────────────────────────────────────
+updateRingLabels();
+setModeDisplay('HEADING');
+connect();
 </script>
 </body>
 </html>
+
 )rawliteral";
 
 // ─── Forward declarations ─────────────────────────────────────────────────────
