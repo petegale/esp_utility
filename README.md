@@ -1,5 +1,7 @@
 # ESP Utility — Sensor Hub & Autopilot Controller
 
+> **Note:** This project is also an experiment in AI-assisted development — the majority of the code, hardware selection, protocol research and UI design was produced through a conversation with Claude (Anthropic). It's an ongoing exploration of how far you can get with AI as a coding collaborator on a real embedded systems project, starting from a concept and working through to a deployable build.
+
 An M5Stack Atom-based ESP32 project that:
 - Receives sensor data from wireless sensors via UDP and transmits it onto an **NMEA2000** network
 - Acts as a **web-based autopilot controller** for B&G / Navico autopilot systems (tested with AP48 + Zeus)
