@@ -1010,9 +1010,10 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 127250: {
       // Vessel heading
+      uint8_t sid;
       double heading, deviation, variation;
-      uint8_t ref;
-      if (ParseN2kHeading(N2kMsg, ref, heading, deviation, variation)) {
+      tN2kHeadingReference ref;
+      if (ParseN2kHeading(N2kMsg, sid, heading, deviation, variation, ref)) {
         if (!N2kIsNA(heading)) { vesselHeading = RadToDeg(heading); stateChanged = true; }
       }
       break;
@@ -1030,7 +1031,8 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 129026: {
       // COG & SOG rapid update
-      uint8_t sid, ref;
+      uint8_t sid;
+      tN2kHeadingReference ref;
       double cog, sog;
       if (ParseN2kCOGSOGRapid(N2kMsg, sid, ref, cog, sog)) {
         if (!N2kIsNA(sog)) { sogKn  = msToKnots(sog); stateChanged = true; }
@@ -1068,21 +1070,24 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 129038: {
       // AIS Class A position report
+      uint8_t          msgId, seconds;
       tN2kAISRepeat    repeat;
       uint32_t         mmsi;
+      double           lat, lon, cog, sog, hdg, rot;
+      bool             accuracy, raim;
       tN2kAISNavStatus navStatus;
-      double           rot, sog, cog, hdg, lat, lon;
-      uint8_t          raim, sid;
-      if (ParseN2kAISClassAReport(N2kMsg, repeat, mmsi, lat, lon, cog, sog, hdg, rot, navStatus, raim, sid)) {
+      if (ParseN2kAISClassAPosition(N2kMsg, msgId, repeat, mmsi,
+            lat, lon, accuracy, raim, seconds,
+            cog, sog, hdg, rot, navStatus)) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
-          aisTargets[idx].mmsi    = mmsi;
-          aisTargets[idx].lat     = lat;
-          aisTargets[idx].lon     = lon;
-          aisTargets[idx].cogDeg  = N2kIsNA(cog) ? 0 : RadToDeg(cog);
-          aisTargets[idx].sogKn   = N2kIsNA(sog) ? 0 : msToKnots(sog);
+          aisTargets[idx].mmsi     = mmsi;
+          aisTargets[idx].lat      = lat;
+          aisTargets[idx].lon      = lon;
+          aisTargets[idx].cogDeg   = N2kIsNA(cog) ? 0 : RadToDeg(cog);
+          aisTargets[idx].sogKn    = N2kIsNA(sog) ? 0 : msToKnots(sog);
           aisTargets[idx].lastSeen = millis();
-          aisTargets[idx].active  = true;
+          aisTargets[idx].active   = true;
           stateChanged = true;
         }
       }
@@ -1091,14 +1096,16 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 129041: {
       // AIS Class B position report
+      uint8_t     msgId, seconds;
       tN2kAISRepeat repeat;
-      uint32_t      mmsi;
-      double        sog, cog, lat, lon, hdg;
-      bool          raim, assigned, dsc;
-      uint8_t       sid;
-      tN2kAISUnit   unit;
-      tN2kAISMode   mode;
-      if (ParseN2kAISClassBReport(N2kMsg, repeat, mmsi, lat, lon, cog, sog, hdg, raim, assigned, dsc, unit, mode, sid)) {
+      uint32_t    mmsi;
+      double      lat, lon, cog, sog, hdg;
+      bool        accuracy, raim, display, dsc, band, msg22, assigned;
+      tN2kAISUnit unit;
+      tN2kAISMode mode;
+      if (ParseN2kAISClassBPosition(N2kMsg, msgId, repeat, mmsi,
+            lat, lon, accuracy, raim, seconds,
+            cog, sog, hdg, unit, display, dsc, band, msg22, mode, assigned)) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
           aisTargets[idx].mmsi     = mmsi;
@@ -1116,10 +1123,11 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 129809: {
       // AIS Class B static data (name)
+      uint8_t       msgId;
       tN2kAISRepeat repeat;
       uint32_t      mmsi;
       char          name[21];
-      if (ParseN2kAISClassBStaticDataPartA(N2kMsg, repeat, mmsi, name)) {
+      if (ParseN2kAISClassBStaticPartA(N2kMsg, msgId, repeat, mmsi, name, sizeof(name))) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
           strncpy(aisTargets[idx].name, name, 20);
@@ -1132,19 +1140,22 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 129794: {
       // AIS Class A static and voyage data (name)
-      tN2kAISRepeat repeat;
-      uint32_t      mmsi;
-      uint8_t       aisVersion, imoNumber, typeOfShip;
-      char          callSign[8], name[21], destination[21];
-      double        length, beam, posRefStbd, posRefBow, draught;
-      uint16_t      ETAdate; uint32_t ETAtime;
-      tN2kGNSStype  gnssType;
-      uint8_t       dte;
-      tN2kAISTranceiverInfo info;
-      if (ParseN2kAISClassAStaticAndVoyageRelatedData(N2kMsg, repeat, mmsi,
-            imoNumber, callSign, name, typeOfShip, length, beam,
-            posRefStbd, posRefBow, ETAdate, ETAtime, draught,
-            destination, aisVersion, gnssType, dte, info)) {
+      uint8_t        msgId;
+      tN2kAISRepeat  repeat;
+      uint32_t       mmsi, imoNumber;
+      char           callSign[8], name[21], destination[21];
+      uint8_t        typeOfShip;
+      double         length, beam, posRefStbd, posRefBow, draught, ETAtime;
+      uint16_t       ETAdate;
+      tN2kAISVersion aisVersion;
+      tN2kGNSStype   gnssType;
+      tN2kAISDTE     dte;
+      if (ParseN2kAISClassAStatic(N2kMsg, msgId, repeat, mmsi,
+            imoNumber, callSign, sizeof(callSign), name, sizeof(name),
+            typeOfShip, length, beam, posRefStbd, posRefBow,
+            ETAdate, ETAtime, draught,
+            destination, sizeof(destination),
+            aisVersion, gnssType, dte)) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
           strncpy(aisTargets[idx].name, name, 20);
@@ -1342,7 +1353,7 @@ void setup() {
   udp.begin(udpPort);
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", INDEX_HTML);
+    request->send(200, "text/html", FPSTR(INDEX_HTML));
   });
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
