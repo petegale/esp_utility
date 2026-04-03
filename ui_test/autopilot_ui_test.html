@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Nav — Test Mode</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #0a1628;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Test mode banner ── */
+    #test-banner {
+      background: #2a1500;
+      border-bottom: 1px solid #ff8800;
+      color: #ff8800;
+      font-size: 0.68em;
+      text-align: center;
+      padding: 4px;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+
+    /* ── Screen container ── */
+    #screens {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 12px 0 12px;
+    }
+
+    .screen { display: none; width: 100%; max-width: 360px; flex-direction: column; align-items: center; }
+    .screen.active { display: flex; }
+
+    /* ── Tab bar ── */
+    #tabbar {
+      display: flex;
+      background: #0d1e2e;
+      border-top: 1px solid #1a2e40;
+      padding: 6px 0 10px 0;
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 6px 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      color: #445566;
+      font-size: 0.65em;
+      letter-spacing: 0.5px;
+      transition: color 0.15s;
+    }
+    .tab svg { width: 22px; height: 22px; }
+    .tab.active { color: #44aaff; }
+
+    /* ═══ AUTOPILOT ═══ */
+    #ap-status {
+      background: #1a2a3a;
+      border-radius: 12px;
+      padding: 10px 24px;
+      text-align: center;
+      margin-bottom: 12px;
+      width: 100%;
+    }
+    #mode-display {
+      font-size: 2em; font-weight: bold; letter-spacing: 4px;
+    }
+    #mode-display.stby    { color: #ff6644; }
+    #mode-display.auto    { color: #00ff88; }
+    #mode-display.wind    { color: #44aaff; }
+    #mode-display.nav     { color: #ffcc00; }
+    #mode-display.nodrift { color: #aa88ff; }
+    #mode-display.nfu     { color: #ff8800; }
+    #heading-display { font-size: 1em; color: #aabbcc; margin-top: 2px; }
+
+    #hdg-controls {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; width: 100%; margin-bottom: 8px;
+    }
+    #nfu-controls {
+      display: none; flex-direction: column; align-items: center;
+      width: 100%; margin-bottom: 8px;
+    }
+    #nfu-controls.active { display: flex; }
+    #wheel-label { font-size: 0.8em; color: #8899aa; margin-bottom: 6px; letter-spacing: 1px; }
+    #wheel-container { width: 200px; height: 200px; margin-bottom: 8px; touch-action: none; }
+    #wheel-svg { width: 100%; height: 100%; cursor: grab; }
+
+    #rudder-bar-wrap {
+      width: 100%; background: #1a2a3a; border-radius: 8px;
+      height: 24px; position: relative; overflow: hidden; margin-bottom: 3px;
+    }
+    #rudder-bar-port { position:absolute; right:50%; top:0; bottom:0; background:#44aaff; width:0; transition:width 0.1s; }
+    #rudder-bar-stbd { position:absolute; left:50%;  top:0; bottom:0; background:#ff6644; width:0; transition:width 0.1s; }
+    #rudder-centre   { position:absolute; left:50%;  top:0; bottom:0; width:2px; background:#556677; transform:translateX(-50%); }
+    #rudder-label { display:flex; justify-content:space-between; width:100%; font-size:0.72em; color:#556677; margin-bottom:8px; }
+
+    #mode-controls {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px; width: 100%; margin-bottom: 8px;
+    }
+
+    button {
+      background: #0d1e2e; color: #445566;
+      border: 2px solid #1a2e40; border-radius: 10px;
+      padding: 16px 4px; font-size: 0.95em; font-weight: bold;
+      cursor: pointer; transition: all 0.15s ease;
+      -webkit-tap-highlight-color: transparent; letter-spacing: 1px;
+    }
+    .btn-stby    { border-color:#5a2a1a; color:#7a4433; }
+    .btn-auto    { border-color:#1a4a2a; color:#336644; }
+    .btn-wind    { border-color:#1a3a5a; color:#336688; }
+    .btn-nav     { border-color:#4a4010; color:#776622; }
+    .btn-nodrift { border-color:#3a2a5a; color:#664488; }
+    .btn-nfu     { border-color:#4a2a10; color:#774422; }
+    .btn-hdg     { padding:18px 4px; font-size:1.1em; background:#1a3050; color:#aabbcc; border-color:#2a4060; }
+    .btn-hdg:active { background:#2a5080; }
+
+    .btn-stby.active    { background:#5a1a0a; border-color:#ff6644; color:#ff6644; box-shadow:0 0 12px #ff664466; }
+    .btn-auto.active    { background:#0a3a1a; border-color:#00ff88; color:#00ff88; box-shadow:0 0 12px #00ff8866; }
+    .btn-wind.active    { background:#0a1a3a; border-color:#44aaff; color:#44aaff; box-shadow:0 0 12px #44aaff66; }
+    .btn-nav.active     { background:#3a3000; border-color:#ffcc00; color:#ffcc00; box-shadow:0 0 12px #ffcc0066; }
+    .btn-nodrift.active { background:#2a0a3a; border-color:#aa88ff; color:#aa88ff; box-shadow:0 0 12px #aa88ff66; }
+    .btn-nfu.active     { background:#3a1a00; border-color:#ff8800; color:#ff8800; box-shadow:0 0 12px #ff880066; }
+
+    #conn { font-size: 0.7em; color: #445566; margin-top: 4px; }
+
+    /* ── Test log ── */
+    #log {
+      margin-top: 8px; width: 100%; background: #0d1f30;
+      border-radius: 8px; padding: 8px; font-size: 0.68em;
+      color: #7a9ab0; font-family: monospace;
+      height: 70px; overflow-y: auto;
+    }
+    #log div { border-bottom: 1px solid #1a2a3a; padding: 1px 0; }
+    #log .sent { color: #00cc66; }
+
+    /* ═══ INSTRUMENTS ═══ */
+    .inst-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; width: 100%; margin-top: 4px;
+    }
+    .inst-box {
+      background: #1a2a3a; border-radius: 12px;
+      padding: 16px 10px 12px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .inst-label { font-size: 0.65em; color: #8899aa; letter-spacing: 2px; }
+    .inst-value { font-size: 2.4em; font-weight: bold; color: #fff; line-height: 1; }
+    .inst-unit  { font-size: 0.7em; color: #556677; letter-spacing: 1px; }
+    .inst-value.depth { color: #44aaff; }
+    .inst-value.sog   { color: #00ff88; }
+    .inst-value.aws   { color: #ffcc00; }
+    .inst-value.awa   { color: #ff8800; }
+    #awa-arrow-wrap { width:100%; display:flex; justify-content:center; margin-top:4px; }
+    #awa-svg { width: 44px; height: 44px; }
+
+    /* ═══ AIS RADAR ═══ */
+    #ais-header {
+      width: 100%; display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 8px;
+      font-size: 0.7em; color: #8899aa;
+    }
+    #ais-range-label { color: #44aaff; font-weight: bold; }
+    .ais-range-btn {
+      background: #1a2a3a; border: 1px solid #2a4060;
+      color: #aabbcc; border-radius: 6px; padding: 4px 10px;
+      font-size: 1em; cursor: pointer;
+    }
+    #radar-wrap { width: 100%; aspect-ratio: 1; max-width: 340px; position: relative; }
+    #radar-svg  { width: 100%; height: 100%; }
+
+    #ais-list {
+      width: 100%; margin-top: 8px; font-size: 0.68em;
+      color: #8899aa; max-height: 110px; overflow-y: auto;
+    }
+    .ais-row {
+      display: flex; justify-content: space-between;
+      padding: 4px 0; border-bottom: 1px solid #1a2a3a;
+      color: #aabbcc; cursor: pointer;
+    }
+    .ais-row:active { background: #1a2a3a; }
+    .ais-row .mmsi  { color: #556677; font-size: 0.9em; }
+    #ais-no-data    { color: #445566; text-align: center; padding: 16px; font-size: 0.9em; }
+
+    /* ── AIS Target popup ── */
+    #ais-popup {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #ais-popup.visible { display: flex; }
+    #ais-popup-card {
+      background: #1a2a3a;
+      border: 1px solid #2a4a6a;
+      border-radius: 14px;
+      padding: 20px;
+      width: 290px;
+      position: relative;
+    }
+    #ais-popup-name {
+      font-size: 1.3em; font-weight: bold;
+      color: #ff6644; margin-bottom: 14px;
+      letter-spacing: 1px;
+    }
+    .popup-row {
+      display: flex; justify-content: space-between;
+      padding: 5px 0; border-bottom: 1px solid #1a3050;
+      font-size: 0.85em;
+    }
+    .popup-row:last-child { border-bottom: none; }
+    .popup-key   { color: #8899aa; }
+    .popup-value { color: #fff; font-weight: bold; }
+    #ais-popup-close {
+      margin-top: 16px; width: 100%;
+      background: #2a3a4a; border: 1px solid #3a5a7a;
+      color: #aabbcc; border-radius: 8px;
+      padding: 10px; font-size: 0.9em; cursor: pointer;
+    }
+    #ais-popup-close:active { background: #3a5a7a; }
+  </style>
+</head>
+<body>
+
+  <div id="test-banner">&#9888; TEST MODE &mdash; simulated data &mdash; not connected to ESP32</div>
+
+  <div id="screens">
+
+    <!-- ── Autopilot ── -->
+    <div id="screen-ap" class="screen active">
+      <div id="ap-status">
+        <div id="mode-display" class="stby">STBY</div>
+        <div id="heading-display">HDG: 247.3&deg;</div>
+      </div>
+
+      <div id="hdg-controls">
+        <button class="btn-hdg" onclick="send('PORT10')">&lt;&lt; 10&deg;</button>
+        <button class="btn-hdg" onclick="send('STBD10')">10&deg; &gt;&gt;</button>
+        <button class="btn-hdg" onclick="send('PORT1')">&lt; 1&deg;</button>
+        <button class="btn-hdg" onclick="send('STBD1')">1&deg; &gt;</button>
+      </div>
+
+      <div id="nfu-controls">
+        <div id="wheel-label">DRAG TO STEER &mdash; RETURN TO CENTRE TO STOP</div>
+        <div id="wheel-container">
+          <svg id="wheel-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="110" cy="110" r="100" fill="#1a2a3a" stroke="#2a4a6a" stroke-width="3"/>
+            <g id="grip-marks" stroke="#3a6a9a" stroke-width="3" stroke-linecap="round">
+              <line x1="110" y1="18" x2="110" y2="34"/>
+              <line x1="110" y1="186" x2="110" y2="202"/>
+              <line x1="18" y1="110" x2="34" y2="110"/>
+              <line x1="186" y1="110" x2="202" y2="110"/>
+              <line x1="39.4" y1="39.4" x2="50.8" y2="50.8"/>
+              <line x1="169.2" y1="169.2" x2="180.6" y2="180.6"/>
+              <line x1="180.6" y1="39.4" x2="169.2" y2="50.8"/>
+              <line x1="50.8" y1="169.2" x2="39.4" y2="180.6"/>
+            </g>
+            <g id="spokes" stroke="#2a5080" stroke-width="6" stroke-linecap="round">
+              <line x1="110" y1="30" x2="110" y2="80"/>
+              <line x1="110" y1="140" x2="110" y2="190"/>
+              <line x1="30" y1="110" x2="80" y2="110"/>
+              <line x1="140" y1="110" x2="190" y2="110"/>
+            </g>
+            <circle cx="110" cy="110" r="22" fill="#1a3050" stroke="#3a6a9a" stroke-width="3"/>
+            <circle id="indicator" cx="110" cy="35" r="7" fill="#ff8800"/>
+          </svg>
+        </div>
+        <div id="rudder-bar-wrap">
+          <div id="rudder-bar-port"></div>
+          <div id="rudder-bar-stbd"></div>
+          <div id="rudder-centre"></div>
+        </div>
+        <div id="rudder-label"><span>PORT</span><span>STBD</span></div>
+      </div>
+
+      <div id="mode-controls">
+        <button id="btn-stby"    class="btn-stby    active" onclick="send('MODE:STBY')">STBY</button>
+        <button id="btn-auto"    class="btn-auto"           onclick="send('MODE:AUTO')">AUTO</button>
+        <button id="btn-wind"    class="btn-wind"           onclick="send('MODE:WIND')">WIND</button>
+        <button id="btn-nav"     class="btn-nav"            onclick="send('MODE:NAV')">NAV</button>
+        <button id="btn-nodrift" class="btn-nodrift"        onclick="send('MODE:NODRIFT')">NO DRIFT</button>
+        <button id="btn-nfu"     class="btn-nfu"            onclick="send('MODE:NFU')">DIRECT</button>
+      </div>
+
+      <div id="conn">&#9888; Test mode</div>
+      <div id="log"><div class="info">Commands will appear here...</div></div>
+    </div>
+
+    <!-- ── Instruments ── -->
+    <div id="screen-inst" class="screen">
+      <div class="inst-grid">
+        <div class="inst-box">
+          <div class="inst-label">Depth</div>
+          <div class="inst-value depth" id="inst-depth">---</div>
+          <div class="inst-unit">metres</div>
+        </div>
+        <div class="inst-box">
+          <div class="inst-label">Speed</div>
+          <div class="inst-value sog" id="inst-sog">---</div>
+          <div class="inst-unit">knots SOG</div>
+        </div>
+        <div class="inst-box">
+          <div class="inst-label">Wind Speed</div>
+          <div class="inst-value aws" id="inst-aws">---</div>
+          <div class="inst-unit">knots AWS</div>
+        </div>
+        <div class="inst-box">
+          <div class="inst-label">Wind Angle</div>
+          <div class="inst-value awa" id="inst-awa">---</div>
+          <div class="inst-unit">deg apparent</div>
+          <div id="awa-arrow-wrap">
+            <svg id="awa-svg" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="22" cy="22" r="20" fill="#1a3050" stroke="#2a4060" stroke-width="1.5"/>
+              <g id="awa-arrow" transform="rotate(0,22,22)">
+                <polygon points="22,4 26,28 22,24 18,28" fill="#ff8800"/>
+              </g>
+              <text x="22" y="40" text-anchor="middle" font-size="7" fill="#556677">S</text>
+              <text x="22" y="9"  text-anchor="middle" font-size="7" fill="#aabbcc">F</text>
+              <text x="6"  y="25" text-anchor="middle" font-size="7" fill="#556677">P</text>
+              <text x="38" y="25" text-anchor="middle" font-size="7" fill="#556677">S</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AIS Radar ── -->
+    <div id="screen-ais" class="screen">
+      <div id="ais-header">
+        <button class="ais-range-btn" onclick="changeRange(-1)">&#8722;</button>
+        <span>Range: <span id="ais-range-label">5 nm</span></span>
+        <button class="ais-range-btn" onclick="changeRange(1)">&#43;</button>
+      </div>
+      <div id="radar-wrap">
+        <svg id="radar-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="170" cy="170" r="170" fill="#080f1a" stroke="#1a2a3a" stroke-width="1"/>
+          <circle cx="170" cy="170" r="127" fill="none" stroke="#1a2a3a" stroke-width="1"/>
+          <circle cx="170" cy="170" r="85"  fill="none" stroke="#1a2a3a" stroke-width="1"/>
+          <circle cx="170" cy="170" r="42"  fill="none" stroke="#1a2a3a" stroke-width="1"/>
+          <line x1="170" y1="0"   x2="170" y2="340" stroke="#1a2a3a" stroke-width="1"/>
+          <line x1="0"   y1="170" x2="340" y2="170" stroke="#1a2a3a" stroke-width="1"/>
+          <text x="173" y="48"  font-size="9" fill="#2a4060" id="ring-label-4"></text>
+          <text x="173" y="90"  font-size="9" fill="#2a4060" id="ring-label-3"></text>
+          <text x="173" y="132" font-size="9" fill="#2a4060" id="ring-label-2"></text>
+          <text x="173" y="174" font-size="9" fill="#2a4060" id="ring-label-1"></text>
+          <text x="170" y="14" text-anchor="middle" font-size="11" fill="#44aaff" font-weight="bold">N</text>
+          <!-- Own vessel -->
+          <polygon points="170,158 175,178 170,174 165,178" fill="#00ff88"/>
+          <g id="ais-targets-group"></g>
+        </svg>
+      </div>
+      <div id="ais-list"></div>
+    </div>
+
+  </div><!-- /screens -->
+
+  <!-- Tab bar -->
+  <div id="tabbar">
+    <div class="tab active" onclick="showScreen('ap')" id="tab-ap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="2" x2="12" y2="6"/>
+        <line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
+        <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+        <line x1="12" y1="12" x2="16" y2="8" stroke-width="2.2"/>
+      </svg>
+      PILOT
+    </div>
+    <div class="tab" onclick="showScreen('inst')" id="tab-inst">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <line x1="8" y1="17" x2="8" y2="11"/>
+        <line x1="12" y1="17" x2="12" y2="7"/>
+        <line x1="16" y1="17" x2="16" y2="13"/>
+      </svg>
+      INSTR
+    </div>
+    <div class="tab" onclick="showScreen('ais')" id="tab-ais">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="4"/>
+        <line x1="12" y1="2" x2="12" y2="8"/>
+        <line x1="12" y1="16" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="8" y2="12"/>
+        <line x1="16" y1="12" x2="22" y2="12"/>
+      </svg>
+      AIS
+    </div>
+  </div>
+
+  <!-- AIS target popup -->
+  <div id="ais-popup" onclick="closePopup(event)">
+    <div id="ais-popup-card">
+      <div id="ais-popup-name">---</div>
+      <div id="ais-popup-rows"></div>
+      <button id="ais-popup-close" onclick="closePopup()">Close</button>
+    </div>
+  </div>
+
+<script>
+  // ══════════════════════════════════════════════
+  // SIMULATED STATE — mirrors what the ESP32 sends
+  // ══════════════════════════════════════════════
+  const OWN_LAT = 50.8100;  // Hastings area
+  const OWN_LON =  0.5700;
+
+  const simTargets = [
+    { mmsi: 235001234, name: 'PRIDE OF KENT',    lat: 50.8320, lon: 0.5900, cog: 225, sog: 18.2, type: 'Ferry' },
+    { mmsi: 235009876, name: 'SARA J',           lat: 50.8050, lon: 0.5400, cog: 080, sog:  4.1, type: 'Sailing' },
+    { mmsi: 338123456, name: 'ATLANTIC STAR',    lat: 50.8600, lon: 0.6400, cog: 260, sog: 12.5, type: 'Cargo' },
+    { mmsi: 235007777, name: 'ENDEAVOUR II',     lat: 50.7900, lon: 0.5200, cog: 340, sog:  6.8, type: 'Fishing' },
+    { mmsi: 235004321, name: 'WAYFARER',         lat: 50.8250, lon: 0.5100, cog: 110, sog:  3.2, type: 'Sailing' },
+    { mmsi: 244012345, name: 'FRISIAN TRADER',   lat: 50.8450, lon: 0.6100, cog: 270, sog:  8.9, type: 'Cargo' },
+  ];
+
+  // Simulated instrument values (vary gently over time)
+  let sim = {
+    mode: 'STBY', heading: 247.3,
+    depth: 24.6, sog: 5.8, cog: 247, aws: 14.2, awa: 42.0,
+    ownLat: OWN_LAT, ownLon: OWN_LON,
+    targets: simTargets
+  };
+
+  // Gently animate instrument values
+  setInterval(() => {
+    sim.depth   = Math.max(5,  sim.depth   + (Math.random() - 0.5) * 0.3);
+    sim.sog     = Math.max(0,  sim.sog     + (Math.random() - 0.5) * 0.2);
+    sim.aws     = Math.max(0,  sim.aws     + (Math.random() - 0.5) * 0.5);
+    sim.awa     = (sim.awa + (Math.random() - 0.5) * 2 + 360) % 360;
+    // Move targets slowly
+    sim.targets.forEach(t => {
+      const cogRad = t.cog * Math.PI / 180;
+      t.lat += Math.cos(cogRad) * t.sog * 0.000003;
+      t.lon += Math.sin(cogRad) * t.sog * 0.000004;
+    });
+    updateAllScreens();
+  }, 1500);
+
+  // ══════════════════════════════════════════════
+  // SCREEN SWITCHING
+  // ══════════════════════════════════════════════
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name !== 'ap') stopNfu();
+  }
+
+  // ══════════════════════════════════════════════
+  // SIMULATED SEND (logs to console instead of WS)
+  // ══════════════════════════════════════════════
+  function send(cmd) {
+    log(cmd, 'sent');
+    if (cmd.startsWith('MODE:')) {
+      const mode = cmd.substring(5);
+      sim.mode = mode;
+      updateAutopilot();
+    } else if (cmd === 'PORT1')  { sim.heading = (sim.heading - 1  + 360) % 360; updateAutopilot(); }
+    else if   (cmd === 'STBD1')  { sim.heading = (sim.heading + 1)  % 360;       updateAutopilot(); }
+    else if   (cmd === 'PORT10') { sim.heading = (sim.heading - 10 + 360) % 360; updateAutopilot(); }
+    else if   (cmd === 'STBD10') { sim.heading = (sim.heading + 10) % 360;       updateAutopilot(); }
+  }
+
+  function log(msg, cls) {
+    const el  = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className   = cls || 'info';
+    div.textContent = '\u2192 ' + msg;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+    // Cap log at 30 lines
+    while (el.children.length > 30) el.removeChild(el.firstChild);
+  }
+
+  // ══════════════════════════════════════════════
+  // UPDATE ALL SCREENS
+  // ══════════════════════════════════════════════
+  function updateAllScreens() {
+    updateAutopilot();
+    updateInstruments();
+    updateAis();
+  }
+
+  // ── Autopilot ─────────────────────────────────
+  const modeButtonMap = {
+    'STBY':'btn-stby','AUTO':'btn-auto','WIND':'btn-wind',
+    'NAV':'btn-nav','NODRIFT':'btn-nodrift','NFU':'btn-nfu'
+  };
+
+  function updateAutopilot() {
+    const mode = sim.mode;
+    const el = document.getElementById('mode-display');
+    el.textContent = mode;
+    el.className   = mode.toLowerCase().replace(' ','');
+    Object.values(modeButtonMap).forEach(id =>
+      document.getElementById(id).classList.remove('active'));
+    const aid = modeButtonMap[mode];
+    if (aid) document.getElementById(aid).classList.add('active');
+    const isNfu = mode === 'NFU';
+    document.getElementById('hdg-controls').style.display = isNfu ? 'none' : 'grid';
+    document.getElementById('nfu-controls').className     = isNfu ? 'active' : '';
+    if (!isNfu) stopNfu();
+    const h = sim.heading;
+    document.getElementById('heading-display').textContent =
+      'HDG: ' + (h >= 0 ? h.toFixed(1) : '---') + '\u00B0';
+  }
+
+  // ── Instruments ───────────────────────────────
+  function fmt(val, dp) {
+    const v = parseFloat(val);
+    return (v >= 0) ? v.toFixed(dp) : '---';
+  }
+
+  function updateInstruments() {
+    document.getElementById('inst-depth').textContent = fmt(sim.depth, 1);
+    document.getElementById('inst-sog').textContent   = fmt(sim.sog,   1);
+    document.getElementById('inst-aws').textContent   = fmt(sim.aws,   1);
+    const awa = parseFloat(sim.awa);
+    if (awa >= 0) {
+      let display = awa > 180 ? awa - 360 : awa;
+      const side  = display >= 0 ? 'S' : 'P';
+      document.getElementById('inst-awa').textContent = Math.abs(display).toFixed(0) + '\u00B0 ' + side;
+      document.getElementById('awa-arrow').setAttribute('transform','rotate('+awa+',22,22)');
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  // AIS RADAR
+  // ══════════════════════════════════════════════
+  const rangeOptions = [0.5, 1, 2, 5, 10, 20];
+  let rangeIdx = 3;
+  const RADAR_R = 170;
+
+  function changeRange(dir) {
+    rangeIdx = Math.max(0, Math.min(rangeOptions.length - 1, rangeIdx + dir));
+    document.getElementById('ais-range-label').textContent = rangeOptions[rangeIdx] + ' nm';
+    updateRingLabels();
+    updateAis();
+  }
+
+  function updateRingLabels() {
+    const r = rangeOptions[rangeIdx];
+    ['1','2','3','4'].forEach((i, idx) => {
+      const nm = (r * (idx + 1) / 4).toFixed(r < 2 ? 2 : 1);
+      document.getElementById('ring-label-' + i).textContent = nm + 'nm';
+    });
+  }
+
+  function latLonToRadar(lat, lon, ownLat, ownLon, rangeNm) {
+    const dLat = (lat - ownLat) * 60;
+    const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
+    const scale = RADAR_R / rangeNm;
+    return { x: 170 + dLon * scale, y: 170 - dLat * scale };
+  }
+
+  function bearingDistance(lat1, lon1, lat2, lon2) {
+    const R = 3440.065;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+    const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) -
+              Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
+    const brg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return { dist, brg };
+  }
+
+  function updateAis() {
+    updateRingLabels();
+    const grp     = document.getElementById('ais-targets-group');
+    const list    = document.getElementById('ais-list');
+    const rangeNm = rangeOptions[rangeIdx];
+    const targets = sim.targets;
+
+    grp.innerHTML  = '';
+    list.innerHTML = '';
+
+    if (!targets.length) {
+      list.innerHTML = '<div id="ais-no-data">No AIS targets</div>';
+      return;
+    }
+
+    targets.forEach(t => {
+      const pos     = latLonToRadar(t.lat, t.lon, OWN_LAT, OWN_LON, rangeNm);
+      const inRange = pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
+      const bd      = bearingDistance(OWN_LAT, OWN_LON, t.lat, t.lon);
+
+      if (inRange) {
+        // COG vector (10 min)
+        if (t.sog > 0.5) {
+          const vecLen = (t.sog / 60 * 10) * (RADAR_R / rangeNm);
+          const cogRad = t.cog * Math.PI / 180;
+          const line   = document.createElementNS('http://www.w3.org/2000/svg','line');
+          line.setAttribute('x1', pos.x); line.setAttribute('y1', pos.y);
+          line.setAttribute('x2', pos.x + Math.sin(cogRad) * vecLen);
+          line.setAttribute('y2', pos.y - Math.cos(cogRad) * vecLen);
+          line.setAttribute('stroke','#ff880055'); line.setAttribute('stroke-width','1.5');
+          grp.appendChild(line);
+        }
+
+        // Target triangle
+        const cogRad = (t.cog || 0) * Math.PI / 180;
+        const s = 7;
+        const tri = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+        const p1x = pos.x + Math.sin(cogRad) * s,        p1y = pos.y - Math.cos(cogRad) * s;
+        const p2x = pos.x + Math.sin(cogRad+2.4)*(s*.7), p2y = pos.y - Math.cos(cogRad+2.4)*(s*.7);
+        const p3x = pos.x + Math.sin(cogRad-2.4)*(s*.7), p3y = pos.y - Math.cos(cogRad-2.4)*(s*.7);
+        tri.setAttribute('points', p1x+','+p1y+' '+p2x+','+p2y+' '+p3x+','+p3y);
+        tri.setAttribute('fill','#ff6644');
+        tri.setAttribute('stroke','#ff4422');
+        tri.setAttribute('stroke-width','1');
+        tri.style.cursor = 'pointer';
+        tri.addEventListener('click', () => openPopup(t, bd));
+        grp.appendChild(tri);
+
+        // Clickable hit area (larger than triangle for easier tapping)
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        hit.setAttribute('cx', pos.x); hit.setAttribute('cy', pos.y);
+        hit.setAttribute('r', '14');
+        hit.setAttribute('fill','transparent');
+        hit.style.cursor = 'pointer';
+        hit.addEventListener('click', () => openPopup(t, bd));
+        grp.appendChild(hit);
+
+        // Name label
+        const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        txt.setAttribute('x', pos.x + 10); txt.setAttribute('y', pos.y + 4);
+        txt.setAttribute('font-size','9'); txt.setAttribute('fill','#aabbcc');
+        txt.style.cursor = 'pointer';
+        txt.textContent  = t.name;
+        txt.addEventListener('click', () => openPopup(t, bd));
+        grp.appendChild(txt);
+      }
+
+      // List row — always shown whether in range or not
+      const row = document.createElement('div');
+      row.className = 'ais-row';
+      row.innerHTML =
+        '<span>' + t.name + '</span>' +
+        '<span>' + bd.dist.toFixed(1) + 'nm ' + bd.brg.toFixed(0) + '\u00B0</span>' +
+        '<span class="mmsi">' + t.mmsi + '</span>';
+      row.addEventListener('click', () => openPopup(t, bd));
+      list.appendChild(row);
+    });
+  }
+
+  // ── AIS Popup ─────────────────────────────────
+  function openPopup(t, bd) {
+    document.getElementById('ais-popup-name').textContent = t.name;
+    const rows = [
+      ['MMSI',     t.mmsi],
+      ['Type',     t.type || '---'],
+      ['Bearing',  bd.brg.toFixed(1) + '\u00B0'],
+      ['Distance', bd.dist.toFixed(2) + ' nm'],
+      ['SOG',      t.sog.toFixed(1) + ' kn'],
+      ['COG',      t.cog.toFixed(0) + '\u00B0'],
+      ['Position', t.lat.toFixed(4) + '\u00B0N  ' + t.lon.toFixed(4) + '\u00B0E'],
+    ];
+    const rowsEl = document.getElementById('ais-popup-rows');
+    rowsEl.innerHTML = rows.map(([k,v]) =>
+      '<div class="popup-row"><span class="popup-key">' + k +
+      '</span><span class="popup-value">' + v + '</span></div>'
+    ).join('');
+    document.getElementById('ais-popup').classList.add('visible');
+  }
+
+  function closePopup(e) {
+    // Close if tapping the backdrop or the close button (not the card itself)
+    if (!e || e.target === document.getElementById('ais-popup') ||
+        e.target === document.getElementById('ais-popup-close')) {
+      document.getElementById('ais-popup').classList.remove('visible');
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  // WHEEL / NFU
+  // ══════════════════════════════════════════════
+  const wheelSvg  = document.getElementById('wheel-svg');
+  const gripMarks = document.getElementById('grip-marks');
+  const spokes    = document.getElementById('spokes');
+  const indicator = document.getElementById('indicator');
+  const portBar   = document.getElementById('rudder-bar-port');
+  const stbdBar   = document.getElementById('rudder-bar-stbd');
+
+  const CX = 110, CY = 110, MAX_ANGLE = 270;
+  let isDragging = false, lastAngle = 0, wheelAngle = 0, nfuInterval = null;
+
+  function getAngleFromEvent(e) {
+    const rect  = wheelSvg.getBoundingClientRect();
+    const touch = e.touches ? e.touches[0] : e;
+    const x = touch.clientX - rect.left - (rect.width  / 2);
+    const y = touch.clientY - rect.top  - (rect.height / 2);
+    return Math.atan2(x, -y) * (180 / Math.PI);
+  }
+  function onDragStart(e) { e.preventDefault(); isDragging = true; lastAngle = getAngleFromEvent(e); }
+  function onDragMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    const angle = getAngleFromEvent(e);
+    let delta = angle - lastAngle;
+    if (delta >  180) delta -= 360;
+    if (delta < -180) delta += 360;
+    lastAngle  = angle;
+    wheelAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, wheelAngle + delta));
+    applyWheelVisual(wheelAngle);
+    applyNfuRate(wheelAngle);
+  }
+  function onDragEnd() { isDragging = false; }
+  function applyWheelVisual(angle) {
+    const t = 'rotate('+angle+','+CX+','+CY+')';
+    gripMarks.setAttribute('transform', t);
+    spokes.setAttribute('transform', t);
+    indicator.setAttribute('transform', t);
+  }
+  function applyNfuRate(angle) {
+    const rate = Math.round((angle / MAX_ANGLE) * 100);
+    portBar.style.width = rate < 0 ? Math.abs(rate/2)+'%' : '0';
+    stbdBar.style.width = rate > 0 ? (rate/2)+'%' : '0';
+    send('NFU:' + rate);
+    if (rate !== 0 && !nfuInterval) {
+      nfuInterval = setInterval(() => send('NFU:'+Math.round((wheelAngle/MAX_ANGLE)*100)), 200);
+    } else if (rate === 0 && nfuInterval) {
+      clearInterval(nfuInterval); nfuInterval = null;
+    }
+  }
+  function stopNfu() {
+    wheelAngle = 0;
+    applyWheelVisual(0);
+    portBar.style.width = '0'; stbdBar.style.width = '0';
+    if (nfuInterval) { clearInterval(nfuInterval); nfuInterval = null; }
+  }
+
+  wheelSvg.addEventListener('touchstart', onDragStart, { passive: false });
+  wheelSvg.addEventListener('touchmove',  onDragMove,  { passive: false });
+  wheelSvg.addEventListener('touchend',   onDragEnd);
+  wheelSvg.addEventListener('mousedown',  onDragStart);
+  window.addEventListener('mousemove',    onDragMove);
+  window.addEventListener('mouseup',      onDragEnd);
+
+  // Init
+  updateRingLabels();
+  updateAllScreens();
+</script>
+</body>
+</html>
