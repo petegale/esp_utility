@@ -446,87 +446,132 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     /* ════════════════════════════════
        SETTINGS SCREEN
     ════════════════════════════════ */
-    #screen-settings { overflow-y: auto; padding-bottom: 24px; }
-
-    .settings-title {
-      font-size: 11px; color: #555; letter-spacing: 3px;
-      margin-bottom: 16px; font-weight: 600;
+    #screen-settings {
+      overflow-y: auto; padding-bottom: 32px;
     }
 
-    .settings-section {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 16px; margin-bottom: 12px;
+    /* Back button */
+    .settings-back {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 20px; cursor: pointer;
+      color: #888; font-size: 13px; font-weight: 600;
+      letter-spacing: 1px;
     }
-    .settings-section-label {
-      font-size: 10px; color: #555; letter-spacing: 3px;
-      margin-bottom: 12px; font-weight: 600;
+    .settings-back:active { color: #fff; }
+    .settings-back svg { width: 18px; height: 18px; }
+
+    /* Section group */
+    .s-group { margin-bottom: 28px; }
+    .s-group-label {
+      font-size: 11px; color: #555; letter-spacing: 2px;
+      font-weight: 700; margin-bottom: 8px; padding: 0 4px;
+    }
+    .s-card {
+      background: #1a1a1a; border-radius: 8px; overflow: hidden;
     }
 
-    .s-field { margin-bottom: 10px; }
-    .s-field:last-child { margin-bottom: 0; }
-    .s-label {
-      font-size: 11px; color: #888; letter-spacing: 1px;
-      margin-bottom: 4px; font-weight: 600;
+    /* List-style fields inside card */
+    .s-row {
+      display: flex; align-items: center;
+      padding: 14px 16px; border-bottom: 1px solid #222;
+      position: relative;
+    }
+    .s-row:last-child { border-bottom: none; }
+    .s-row-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-right: 12px;
+    }
+    .s-row-icon svg { width: 18px; height: 18px; }
+    .s-row-body { flex: 1; min-width: 0; }
+    .s-row-label { font-size: 14px; color: #fff; font-weight: 500; }
+    .s-row-sub   { font-size: 11px; color: #555; margin-top: 2px; }
+    .s-row-value { font-size: 13px; color: #888; flex-shrink: 0; margin-left: 8px; }
+
+    /* Status dot */
+    .s-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #444; flex-shrink: 0; margin-left: 8px;
+    }
+    .s-dot.on { background: #00cc55; }
+
+    /* Inline input (full-width, floated label style) */
+    .s-field-card {
+      background: #1a1a1a; border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 2px;
+    }
+    .s-field-card + .s-field-card { margin-top: 2px; }
+    .s-field-label {
+      font-size: 11px; color: #555; letter-spacing: 1px;
+      margin-bottom: 5px; font-weight: 600;
     }
     .s-input {
-      width: 100%; background: #0d0d0d; border: 1.5px solid #333;
-      border-radius: 4px; padding: 10px 12px; color: #fff;
-      font-size: 14px; font-family: -apple-system, sans-serif;
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1.5px solid #333; padding: 4px 0 6px;
+      color: #fff; font-size: 16px;
+      font-family: -apple-system, sans-serif;
       outline: none; user-select: text; -webkit-user-select: text;
     }
-    .s-input:focus { border-color: #555; }
-    .s-input::placeholder { color: #333; }
+    .s-input:focus { border-bottom-color: #00cc55; }
+    .s-input::placeholder { color: #444; font-size: 14px; }
 
-    .s-radio-group {
-      display: flex; flex-wrap: wrap; gap: 6px;
+    /* Segmented control for radio groups */
+    .s-segment {
+      display: flex; background: #111;
+      border-radius: 8px; padding: 3px; gap: 2px;
+      margin-top: 4px;
     }
-    .s-radio {
-      background: #0d0d0d; border: 1.5px solid #333;
-      border-radius: 4px; padding: 8px 14px;
+    .s-seg-btn {
+      flex: 1; text-align: center; padding: 9px 4px;
+      border-radius: 6px; font-size: 12px; font-weight: 700;
+      color: #555; cursor: pointer; transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+    .s-seg-btn.active {
+      background: #2a2a2a; color: #fff;
+    }
+    .s-seg-btn:active { opacity: 0.8; }
+
+    /* AP type chips */
+    .s-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .s-chip {
+      background: #111; border: 1.5px solid #2a2a2a;
+      border-radius: 20px; padding: 7px 14px;
       font-size: 12px; font-weight: 700; color: #555;
-      cursor: pointer; letter-spacing: 0.5px;
-      transition: all 0.15s;
+      cursor: pointer; transition: all 0.15s;
     }
-    .s-radio.active {
-      border-color: #00cc55; color: #00cc55; background: #051a0a;
-    }
-    .s-radio:active { opacity: 0.8; }
+    .s-chip.active { border-color: #00cc55; color: #00cc55; background: #051a0a; }
+    .s-chip:active { opacity: 0.8; }
 
-    .s-btn {
-      width: 100%; background: #0d0d0d; border: 1.5px solid #006622;
-      border-radius: 4px; padding: 13px; margin-top: 10px;
-      font-size: 14px; font-weight: 700; color: #00cc55;
-      cursor: pointer; letter-spacing: 1px;
-      transition: background 0.15s;
+    /* Action buttons */
+    .s-action-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; width: 100%; padding: 15px;
+      border-radius: 8px; border: none; margin-top: 8px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      letter-spacing: 0.5px; transition: opacity 0.15s;
     }
-    .s-btn:active { background: #051a0a; }
-    .s-btn.danger { border-color: #662200; color: #cc4400; }
-    .s-btn.danger:active { background: #1a0d00; }
+    .s-action-btn:active { opacity: 0.75; }
+    .s-action-btn.primary {
+      background: #00cc55; color: #000;
+    }
+    .s-action-btn.danger {
+      background: #1a1a1a; color: #cc4400;
+      border: 1.5px solid #2a2a2a;
+    }
+    .s-action-btn svg { width: 18px; height: 18px; }
 
     .s-status {
-      font-size: 11px; color: #555; text-align: center;
-      margin-top: 8px; min-height: 16px;
-      transition: color 0.2s;
+      font-size: 12px; text-align: center;
+      margin-top: 10px; min-height: 18px;
     }
-    .s-status.ok { color: #00cc55; }
+    .s-status.ok  { color: #00cc55; }
     .s-status.err { color: #cc4400; }
 
     .s-note {
-      font-size: 10px; color: #444; margin-top: 6px;
-      line-height: 1.4; letter-spacing: 0.3px;
+      font-size: 11px; color: #444; margin-top: 8px;
+      line-height: 1.5; padding: 0 4px;
     }
-
-    .s-wifi-status {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 0; margin-bottom: 6px;
-    }
-    .s-wifi-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #444; flex-shrink: 0;
-    }
-    .s-wifi-dot.connected { background: #00cc55; }
-    .s-wifi-info { font-size: 12px; color: #888; }
-    .s-wifi-ip { font-size: 11px; color: #555; }
   </style>
 </head>
 <body>
@@ -628,7 +673,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <!-- ════ INSTRUMENTS ════ -->
   <div id="screen-inst" class="screen">
-    <div class="inst-screen-title">INSTRUMENTS</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="inst-screen-title" style="margin-bottom:0;">INSTRUMENTS</div>
+      <svg onclick="showScreen('settings')" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </div>
 
     <div class="inst-hero">
       <div class="inst-hero-left">
@@ -678,7 +729,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <!-- ════ AIS ════ -->
   <div id="screen-ais" class="screen">
-    <div class="ais-screen-title">AIS RADAR</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="ais-screen-title" style="margin-bottom:0;">AIS RADAR</div>
+      <svg onclick="showScreen('settings')" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </div>
 
     <div id="ais-range-row">
       <span class="range-label">RANGE</span>
@@ -718,75 +775,110 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <!-- ════ SETTINGS ════ -->
   <div id="screen-settings" class="screen">
-    <div class="settings-title">SETTINGS</div>
 
-    <!-- WiFi status -->
-    <div class="settings-section">
-      <div class="settings-section-label">NETWORK STATUS</div>
-      <div class="s-wifi-status">
-        <div class="s-wifi-dot" id="s-wifi-dot"></div>
-        <div>
-          <div class="s-wifi-info" id="s-wifi-info">---</div>
-          <div class="s-wifi-ip" id="s-wifi-ip"></div>
+    <!-- Back -->
+    <div class="settings-back" onclick="showScreen('ap')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      BACK
+    </div>
+
+    <!-- Network status -->
+    <div class="s-group">
+      <div class="s-group-label">NETWORK</div>
+      <div class="s-card">
+        <div class="s-row">
+          <div class="s-row-icon" style="background:#051a0a;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00cc55" stroke-width="1.8" stroke-linecap="round">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3"/>
+            </svg>
+          </div>
+          <div class="s-row-body">
+            <div class="s-row-label" id="s-wifi-info">---</div>
+            <div class="s-row-sub"  id="s-wifi-ip"></div>
+          </div>
+          <div class="s-dot" id="s-wifi-dot"></div>
         </div>
       </div>
     </div>
 
     <!-- WiFi mode -->
-    <div class="settings-section">
-      <div class="settings-section-label">WIFI MODE</div>
-      <div class="s-radio-group" id="wifi-mode-group">
-        <div class="s-radio active" data-val="AP" onclick="setWifiMode('AP')">ACCESS POINT</div>
-        <div class="s-radio" data-val="STA" onclick="setWifiMode('STA')">JOIN NETWORK</div>
+    <div class="s-group">
+      <div class="s-group-label">WIFI MODE</div>
+      <div class="s-card" style="padding:14px 16px;">
+        <div class="s-segment" id="wifi-mode-group">
+          <div class="s-seg-btn active" data-val="AP"  onclick="setWifiMode('AP')">Access Point</div>
+          <div class="s-seg-btn"        data-val="STA" onclick="setWifiMode('STA')">Join Network</div>
+        </div>
       </div>
     </div>
 
-    <!-- AP settings -->
-    <div class="settings-section" id="ap-settings">
-      <div class="settings-section-label">ACCESS POINT</div>
-      <div class="s-field">
-        <div class="s-label">NETWORK NAME</div>
-        <input class="s-input" id="s-ap-ssid" type="text" placeholder="sensor" maxlength="32" autocomplete="off">
+    <!-- AP credentials -->
+    <div class="s-group" id="ap-settings">
+      <div class="s-group-label">ACCESS POINT</div>
+      <div class="s-field-card">
+        <div class="s-field-label">NETWORK NAME</div>
+        <input class="s-input" id="s-ap-ssid" type="text" placeholder="sensor" maxlength="32" autocomplete="off" autocapitalize="none">
       </div>
-      <div class="s-field">
-        <div class="s-label">PASSWORD</div>
-        <input class="s-input" id="s-ap-pass" type="text" placeholder="min 8 characters" maxlength="63" autocomplete="off">
+      <div class="s-field-card">
+        <div class="s-field-label">PASSWORD</div>
+        <input class="s-input" id="s-ap-pass" type="password" placeholder="min 8 characters" maxlength="63" autocomplete="off">
       </div>
-      <div class="s-note">Devices connect directly to this hotspot. Password must be at least 8 characters.</div>
+      <div class="s-note">Other devices connect directly to this hotspot. Leave password blank for an open network.</div>
     </div>
 
-    <!-- STA settings -->
-    <div class="settings-section" id="sta-settings" style="display:none;">
-      <div class="settings-section-label">JOIN EXISTING NETWORK</div>
-      <div class="s-field">
-        <div class="s-label">NETWORK NAME (SSID)</div>
-        <input class="s-input" id="s-sta-ssid" type="text" placeholder="your-wifi-name" maxlength="32" autocomplete="off">
+    <!-- STA credentials -->
+    <div class="s-group" id="sta-settings" style="display:none;">
+      <div class="s-group-label">NETWORK TO JOIN</div>
+      <div class="s-field-card">
+        <div class="s-field-label">NETWORK NAME (SSID)</div>
+        <input class="s-input" id="s-sta-ssid" type="text" placeholder="your-wifi-name" maxlength="32" autocomplete="off" autocapitalize="none">
       </div>
-      <div class="s-field">
-        <div class="s-label">PASSWORD</div>
-        <input class="s-input" id="s-sta-pass" type="text" placeholder="wifi password" maxlength="63" autocomplete="off">
+      <div class="s-field-card">
+        <div class="s-field-label">PASSWORD</div>
+        <input class="s-input" id="s-sta-pass" type="password" placeholder="wifi password" maxlength="63" autocomplete="off">
       </div>
-      <div class="s-note">The device will join this network. If it cannot connect, it will fall back to Access Point mode.</div>
+      <div class="s-note">If the device cannot connect it will fall back to Access Point mode automatically.</div>
     </div>
 
     <!-- Autopilot type -->
-    <div class="settings-section">
-      <div class="settings-section-label">AUTOPILOT TYPE</div>
-      <div class="s-radio-group" id="ap-type-group">
-        <div class="s-radio active" data-val="BG" onclick="setApType('BG')">B&amp;G / NAVICO</div>
-        <div class="s-radio" data-val="SIMRAD" onclick="setApType('SIMRAD')">SIMRAD</div>
-        <div class="s-radio" data-val="GARMIN" onclick="setApType('GARMIN')">GARMIN</div>
-        <div class="s-radio" data-val="RAYMARINE" onclick="setApType('RAYMARINE')">RAYMARINE</div>
-        <div class="s-radio" data-val="GENERIC" onclick="setApType('GENERIC')">GENERIC</div>
+    <div class="s-group">
+      <div class="s-group-label">AUTOPILOT</div>
+      <div class="s-card" style="padding:14px 16px;">
+        <div class="s-chips" id="ap-type-group">
+          <div class="s-chip active" data-val="BG"        onclick="setApType('BG')">B&amp;G / Navico</div>
+          <div class="s-chip"        data-val="SIMRAD"    onclick="setApType('SIMRAD')">Simrad</div>
+          <div class="s-chip"        data-val="GARMIN"    onclick="setApType('GARMIN')">Garmin</div>
+          <div class="s-chip"        data-val="RAYMARINE" onclick="setApType('RAYMARINE')">Raymarine</div>
+          <div class="s-chip"        data-val="GENERIC"   onclick="setApType('GENERIC')">Generic</div>
+        </div>
       </div>
-      <div class="s-note">Select your autopilot brand. This configures the correct NMEA2000 proprietary PGNs for mode commands and heading adjustments. Verify with debug logging before use.</div>
+      <div class="s-note">Configures NMEA2000 proprietary PGNs for mode commands. Verify with debug logging before use at sea.</div>
     </div>
 
-    <!-- Save / Reboot -->
-    <button class="s-btn" onclick="saveSettings()">SAVE &amp; REBOOT</button>
-    <button class="s-btn danger" onclick="factoryReset()">FACTORY RESET</button>
+    <!-- Actions -->
+    <button class="s-action-btn primary" onclick="saveSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      Save &amp; Reboot
+    </button>
+    <button class="s-action-btn danger" onclick="factoryReset()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <polyline points="1 4 1 10 7 10"/>
+        <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+      </svg>
+      Factory Reset
+    </button>
     <div class="s-status" id="s-status"></div>
+
   </div>
+
+
 
 </div><!-- /screens -->
 
@@ -823,13 +915,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <line x1="16" y1="12" x2="22" y2="12"/>
     </svg>
     AIS
-  </div>
-  <div class="tab" onclick="showScreen('settings')" id="tab-settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-    SETUP
   </div>
 </div>
 
@@ -1307,7 +1392,7 @@ function applySettingsFromServer(s) {
 
 function setWifiMode(mode, noSend) {
   settingsWifiMode = mode;
-  document.querySelectorAll('#wifi-mode-group .s-radio').forEach(el => {
+  document.querySelectorAll('#wifi-mode-group .s-seg-btn').forEach(el => {
     el.classList.toggle('active', el.dataset.val === mode);
   });
   document.getElementById('ap-settings').style.display  = mode === 'AP'  ? 'block' : 'none';
@@ -1316,7 +1401,7 @@ function setWifiMode(mode, noSend) {
 
 function setApType(type, noSend) {
   settingsApType = type;
-  document.querySelectorAll('#ap-type-group .s-radio').forEach(el => {
+  document.querySelectorAll('#ap-type-group .s-chip').forEach(el => {
     el.classList.toggle('active', el.dataset.val === type);
   });
 }
