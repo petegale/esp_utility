@@ -15,9 +15,69 @@
 #include <NMEA2000_CAN.h>
 #include <N2kMessages.h>
 
-// ─── WiFi / Network ───────────────────────────────────────────────────────────
-const char *ssid     = "sensor";
-const char *password = "12345678";
+// ─── Forward declarations ─────────────────────────────────────────────────────
+void SendN2kTankLevel(double, double, tN2kFluidType);
+void SendN2kTemperature(int, tN2kTempSource, double);
+void HandleN2kMessage(const tN2kMsg &);
+void SendModeCommand(const char*);
+void SendNfuCommand(int rate);
+void SendHeadingAdjust(int degrees);
+void BroadcastState();
+void handleWsMessage(const String&);
+int  bounds(int);
+int  findOrAllocAisSlot(uint32_t mmsi);
+void expireAisTargets();
+void buildStateJson(char* buf, size_t bufSize);
+void updateAisTarget(int idx, uint32_t mmsi, double lat, double lon, double cog, double sog);
+void loadSettings();
+void saveSettings();
+void handleSettingsMessage(const String& msg);
+
+// ─── Persistent settings ─────────────────────────────────────────────────────
+Preferences prefs;
+
+// WiFi mode: "AP" = create hotspot, "STA" = join existing network
+char wifiMode[4]     = "AP";
+char apSsid[33]      = "sensor";
+char apPassword[65]  = "12345678";
+char staSsid[33]     = "";
+char staPassword[65] = "";
+
+// Autopilot type: "BG" (B&G/Navico), "GARMIN", "RAYMARINE", "SIMRAD", "GENERIC"
+char apType[12]      = "BG";
+
+// ─── Autopilot command configuration per type ────────────────────────────────
+// PGN and byte mappings for different autopilot brands
+struct ApConfig {
+  unsigned long modePgn;
+  unsigned long steerPgn;
+  unsigned long statusPgn;
+  uint8_t       srcAddr;
+  uint8_t       modeStby;
+  uint8_t       modeAuto;
+  uint8_t       modeNfu;
+  uint8_t       modeNoDrift;
+  uint8_t       modeWind;
+  uint8_t       modeNav;
+};
+
+ApConfig apCfg;
+
+void applyApConfig() {
+  if (strcmp(apType, "BG") == 0 || strcmp(apType, "SIMRAD") == 0) {
+    // B&G / Simrad / Navico
+    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+  } else if (strcmp(apType, "GARMIN") == 0) {
+    // Garmin — uses same proprietary PGNs but different source conventions
+    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+  } else if (strcmp(apType, "RAYMARINE") == 0) {
+    // Raymarine — placeholder, same structure pending field verification
+    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+  } else {
+    // GENERIC fallback
+    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+  }
+}
 
 // ─── UDP (existing sensor input) ──────────────────────────────────────────────
 WiFiUDP udp;
@@ -29,7 +89,6 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // ─── Tank calibration ────────────────────────────────────────────────────────
-// FIX #7: fuelValues corrected to 3 to match the 3-point calibration array
 const int fuelValues  = 3;
 double fuelInput[3]   = {0.0, 41.0, 78.0};
 double fuelOutput[3]  = {0.0, 52.0, 100.0};
@@ -55,7 +114,6 @@ double awaDeg        = -1;    // apparent wind angle degrees, -1 = no data
 double cogDeg        = -1;    // course over ground degrees, -1 = no data
 
 // ─── AIS target data ──────────────────────────────────────────────────────────
-// Store up to 20 AIS targets. Older targets expire after AIS_TARGET_TIMEOUT_MS.
 struct AisTarget {
   uint32_t      mmsi;
   double        lat;
@@ -71,34 +129,36 @@ AisTarget aisTargets[MAX_AIS_TARGETS];
 const unsigned long AIS_TARGET_TIMEOUT_MS = 300000; // 5 minutes
 
 // Own vessel position for AIS radar centre
-double ownLat = -999;
-double ownLon = -999;
+double ownLat = NAN;  // FIX #6: use NAN instead of -999 sentinel
+double ownLon = NAN;
 
 // ─── NFU / Direct steering state ─────────────────────────────────────────────
-volatile int  nfuRate    = 0;   // volatile: written in WS callback, read in loop
+volatile int  nfuRate    = 0;
 unsigned long nfuLastMsg = 0;
 unsigned long nfuLastSend = 0;
-const unsigned long NFU_TIMEOUT_MS      = 500;  // stop if no message for 500ms
-const unsigned long NFU_SEND_INTERVAL_MS = 100; // send NFU commands at 10Hz
+const unsigned long NFU_TIMEOUT_MS      = 500;
+const unsigned long NFU_SEND_INTERVAL_MS = 100;
 
 // ─── Broadcast rate limiter ───────────────────────────────────────────────────
 unsigned long lastBroadcast = 0;
-const unsigned long BROADCAST_INTERVAL_MS = 200; // max 5Hz to WebSocket clients
+const unsigned long BROADCAST_INTERVAL_MS = 200; // max 5Hz
+
+// ─── Client cleanup rate limiter ─────────────────────────────────────────────
+// FIX #11: Don't call cleanupClients every loop iteration
+unsigned long lastCleanup = 0;
+const unsigned long CLEANUP_INTERVAL_MS = 1000;
 
 // ─── NMEA2000 ─────────────────────────────────────────────────────────────────
-// FIX #13: TransmitMessages trimmed to only what we actually send
 const unsigned long TransmitMessages[] PROGMEM = {
   127505L,  // Fluid Level
   130311L,  // Temperature
   0
 };
 
-// ─── Debug mode ───────────────────────────────────────────────────────────────
-// To enable bus sniffing, uncomment the three lines in setup() marked DEBUG.
-// Prints every PGN in human-readable text to Serial. Use this to capture
-// what your AP48 actually sends when you press each mode button, then compare
-// against the byte sequences in SendModeCommand() below.
-// Re-comment before normal deployment.
+// ─── JSON buffer ──────────────────────────────────────────────────────────────
+// FIX #10: Pre-allocated buffer instead of String concatenation
+// Worst case: ~200 bytes header + 20 targets * ~120 bytes each = ~2600 bytes
+static char jsonBuf[3072];
 
 // ─── HTML UI (PROGMEM) ────────────────────────────────────────────────────────
 const char INDEX_HTML[] PROGMEM = R"rawliteral(
@@ -282,7 +342,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       margin-bottom: 14px; font-weight: 600;
     }
 
-    /* SOG — full width hero */
     .inst-hero {
       border: 1.5px solid #333; border-radius: 4px;
       padding: 14px 18px; margin-bottom: 10px;
@@ -295,7 +354,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .inst-hero-right .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
     .inst-hero-right .inst-sub  { font-size: 28px; font-weight: 800; color: #aaa; line-height: 1; }
 
-    /* 2-col grid for rest */
     .inst-grid {
       display: grid; grid-template-columns: 1fr 1fr;
       gap: 10px; margin-bottom: 10px;
@@ -308,14 +366,12 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .inst-big  { font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
     .inst-unit { font-size: 11px; color: #555; letter-spacing: 1px; margin-top: 3px; }
 
-    /* depth — full width bottom */
     .inst-row {
       border: 1.5px solid #333; border-radius: 4px;
       padding: 14px 18px; display: flex;
       align-items: flex-end; justify-content: space-between;
     }
 
-    /* Wind arrow */
     .awa-arrow-wrap { display: flex; justify-content: flex-end; padding-bottom: 2px; }
     #awa-svg { width: 40px; height: 40px; }
 
@@ -358,7 +414,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .ais-brg  { font-size: 10px; color: #555; text-align: right; margin-top: 1px; }
     #ais-no-data { color: #444; text-align: center; padding: 20px; font-size: 13px; }
 
-    /* AIS target popup */
     #ais-popup {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.85); z-index: 200;
@@ -387,6 +442,91 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px;
     }
     #ais-popup-close:active { background: #2a2a2a; }
+
+    /* ════════════════════════════════
+       SETTINGS SCREEN
+    ════════════════════════════════ */
+    #screen-settings { overflow-y: auto; padding-bottom: 24px; }
+
+    .settings-title {
+      font-size: 11px; color: #555; letter-spacing: 3px;
+      margin-bottom: 16px; font-weight: 600;
+    }
+
+    .settings-section {
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .settings-section-label {
+      font-size: 10px; color: #555; letter-spacing: 3px;
+      margin-bottom: 12px; font-weight: 600;
+    }
+
+    .s-field { margin-bottom: 10px; }
+    .s-field:last-child { margin-bottom: 0; }
+    .s-label {
+      font-size: 11px; color: #888; letter-spacing: 1px;
+      margin-bottom: 4px; font-weight: 600;
+    }
+    .s-input {
+      width: 100%; background: #0d0d0d; border: 1.5px solid #333;
+      border-radius: 4px; padding: 10px 12px; color: #fff;
+      font-size: 14px; font-family: -apple-system, sans-serif;
+      outline: none; user-select: text; -webkit-user-select: text;
+    }
+    .s-input:focus { border-color: #555; }
+    .s-input::placeholder { color: #333; }
+
+    .s-radio-group {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .s-radio {
+      background: #0d0d0d; border: 1.5px solid #333;
+      border-radius: 4px; padding: 8px 14px;
+      font-size: 12px; font-weight: 700; color: #555;
+      cursor: pointer; letter-spacing: 0.5px;
+      transition: all 0.15s;
+    }
+    .s-radio.active {
+      border-color: #00cc55; color: #00cc55; background: #051a0a;
+    }
+    .s-radio:active { opacity: 0.8; }
+
+    .s-btn {
+      width: 100%; background: #0d0d0d; border: 1.5px solid #006622;
+      border-radius: 4px; padding: 13px; margin-top: 10px;
+      font-size: 14px; font-weight: 700; color: #00cc55;
+      cursor: pointer; letter-spacing: 1px;
+      transition: background 0.15s;
+    }
+    .s-btn:active { background: #051a0a; }
+    .s-btn.danger { border-color: #662200; color: #cc4400; }
+    .s-btn.danger:active { background: #1a0d00; }
+
+    .s-status {
+      font-size: 11px; color: #555; text-align: center;
+      margin-top: 8px; min-height: 16px;
+      transition: color 0.2s;
+    }
+    .s-status.ok { color: #00cc55; }
+    .s-status.err { color: #cc4400; }
+
+    .s-note {
+      font-size: 10px; color: #444; margin-top: 6px;
+      line-height: 1.4; letter-spacing: 0.3px;
+    }
+
+    .s-wifi-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 0; margin-bottom: 6px;
+    }
+    .s-wifi-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #444; flex-shrink: 0;
+    }
+    .s-wifi-dot.connected { background: #00cc55; }
+    .s-wifi-info { font-size: 12px; color: #888; }
+    .s-wifi-ip { font-size: 11px; color: #555; }
   </style>
 </head>
 <body>
@@ -398,7 +538,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     <div class="ap-topbar">
       <div class="ap-label">AUTOPILOT</div>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+      <svg onclick="showScreen('settings')" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
@@ -564,13 +704,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <text x="173" y="90"  font-size="9" fill="#333" id="ring-label-3"></text>
         <text x="173" y="132" font-size="9" fill="#333" id="ring-label-2"></text>
         <text x="173" y="174" font-size="9" fill="#333" id="ring-label-1"></text>
-        <!-- Heading-up indicator: shows current vessel heading at top -->
         <text id="hdg-up-label" x="170" y="13" text-anchor="middle" font-size="11" fill="#888" font-weight="bold">---&#xb0;</text>
-        <!-- North tick: short line that rotates with the display to show where N is -->
         <line id="north-tick" x1="170" y1="0" x2="170" y2="10" stroke="#444" stroke-width="2"/>
-        <!-- Own vessel triangle — always points up (forward) -->
         <polygon points="170,158 175,178 170,174 165,178" fill="#00cc55"/>
-        <!-- All targets rendered here, rotated to heading-up by JS -->
         <g id="ais-targets-group"></g>
       </svg>
     </div>
@@ -578,6 +714,78 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     <div id="ais-list">
       <div id="ais-no-data">No AIS targets</div>
     </div>
+  </div>
+
+  <!-- ════ SETTINGS ════ -->
+  <div id="screen-settings" class="screen">
+    <div class="settings-title">SETTINGS</div>
+
+    <!-- WiFi status -->
+    <div class="settings-section">
+      <div class="settings-section-label">NETWORK STATUS</div>
+      <div class="s-wifi-status">
+        <div class="s-wifi-dot" id="s-wifi-dot"></div>
+        <div>
+          <div class="s-wifi-info" id="s-wifi-info">---</div>
+          <div class="s-wifi-ip" id="s-wifi-ip"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WiFi mode -->
+    <div class="settings-section">
+      <div class="settings-section-label">WIFI MODE</div>
+      <div class="s-radio-group" id="wifi-mode-group">
+        <div class="s-radio active" data-val="AP" onclick="setWifiMode('AP')">ACCESS POINT</div>
+        <div class="s-radio" data-val="STA" onclick="setWifiMode('STA')">JOIN NETWORK</div>
+      </div>
+    </div>
+
+    <!-- AP settings -->
+    <div class="settings-section" id="ap-settings">
+      <div class="settings-section-label">ACCESS POINT</div>
+      <div class="s-field">
+        <div class="s-label">NETWORK NAME</div>
+        <input class="s-input" id="s-ap-ssid" type="text" placeholder="sensor" maxlength="32" autocomplete="off">
+      </div>
+      <div class="s-field">
+        <div class="s-label">PASSWORD</div>
+        <input class="s-input" id="s-ap-pass" type="text" placeholder="min 8 characters" maxlength="63" autocomplete="off">
+      </div>
+      <div class="s-note">Devices connect directly to this hotspot. Password must be at least 8 characters.</div>
+    </div>
+
+    <!-- STA settings -->
+    <div class="settings-section" id="sta-settings" style="display:none;">
+      <div class="settings-section-label">JOIN EXISTING NETWORK</div>
+      <div class="s-field">
+        <div class="s-label">NETWORK NAME (SSID)</div>
+        <input class="s-input" id="s-sta-ssid" type="text" placeholder="your-wifi-name" maxlength="32" autocomplete="off">
+      </div>
+      <div class="s-field">
+        <div class="s-label">PASSWORD</div>
+        <input class="s-input" id="s-sta-pass" type="text" placeholder="wifi password" maxlength="63" autocomplete="off">
+      </div>
+      <div class="s-note">The device will join this network. If it cannot connect, it will fall back to Access Point mode.</div>
+    </div>
+
+    <!-- Autopilot type -->
+    <div class="settings-section">
+      <div class="settings-section-label">AUTOPILOT TYPE</div>
+      <div class="s-radio-group" id="ap-type-group">
+        <div class="s-radio active" data-val="BG" onclick="setApType('BG')">B&amp;G / NAVICO</div>
+        <div class="s-radio" data-val="SIMRAD" onclick="setApType('SIMRAD')">SIMRAD</div>
+        <div class="s-radio" data-val="GARMIN" onclick="setApType('GARMIN')">GARMIN</div>
+        <div class="s-radio" data-val="RAYMARINE" onclick="setApType('RAYMARINE')">RAYMARINE</div>
+        <div class="s-radio" data-val="GENERIC" onclick="setApType('GENERIC')">GENERIC</div>
+      </div>
+      <div class="s-note">Select your autopilot brand. This configures the correct NMEA2000 proprietary PGNs for mode commands and heading adjustments. Verify with debug logging before use.</div>
+    </div>
+
+    <!-- Save / Reboot -->
+    <button class="s-btn" onclick="saveSettings()">SAVE &amp; REBOOT</button>
+    <button class="s-btn danger" onclick="factoryReset()">FACTORY RESET</button>
+    <div class="s-status" id="s-status"></div>
   </div>
 
 </div><!-- /screens -->
@@ -616,6 +824,13 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     </svg>
     AIS
   </div>
+  <div class="tab" onclick="showScreen('settings')" id="tab-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+    SETUP
+  </div>
 </div>
 
 <!-- Mode popup -->
@@ -652,12 +867,21 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      updateFromServer(d);
+      if (d.settings !== undefined) {
+        applySettingsFromServer(d.settings);
+      } else {
+        updateFromServer(d);
+      }
     } catch(err) {}
   };
 }
 
 function wsSend(cmd) { if (ws && ws.readyState === 1) ws.send(cmd); }
+
+// FIX #4: Send NFU:0 on page unload to stop steering immediately
+window.addEventListener('beforeunload', function() {
+  if (nfuRate !== 0) { wsSend('NFU:0'); }
+});
 
 function updateFromServer(d) {
   // Autopilot
@@ -676,6 +900,7 @@ function updateFromServer(d) {
   if (d.vessel !== undefined && d.vessel >= 0) {
     vesselHeading = d.vessel;
   }
+  // FIX #3: Use server-provided heading, not hardcoded value
   if (d.heading >= 0) {
     document.getElementById('ap-hdg-value').textContent  = d.heading.toFixed(1) + '\u00B0';
     document.getElementById('actual-hdg').textContent    = d.vessel >= 0 ? d.vessel.toFixed(1) + '\u00B0' : '---\u00B0';
@@ -691,8 +916,8 @@ function updateFromServer(d) {
     document.getElementById('inst-awa').textContent = disp.toFixed(0) + '\u00B0 ' + side;
     document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
   }
-  // AIS
-  if (d.ownLat !== undefined) { ownLat = d.ownLat; ownLon = d.ownLon; }
+  // FIX #6: Check for NaN/null own position before setting
+  if (d.ownLat !== undefined && d.ownLat !== null && isFinite(d.ownLat)) { ownLat = d.ownLat; ownLon = d.ownLon; }
   if (d.targets !== undefined) { aisTargets = d.targets; updateAisDisplay(); }
 }
 
@@ -703,8 +928,10 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
+  const tabEl = document.getElementById('tab-' + name);
+  if (tabEl) tabEl.classList.add('active');
   if (name !== 'ap') stopNfu();
+  if (name === 'settings') requestSettings();
 }
 
 // ════════════════════════════════
@@ -720,7 +947,6 @@ const AP_MODES = [
 
 let apEngaged    = false;
 let currentMode  = 'HEADING';
-let lockedHdg    = 0;
 let nfuRate      = 0;
 let nfuInterval  = null;
 let wheelAngle   = 0;
@@ -743,7 +969,6 @@ function updateControls() {
   const wheel = document.getElementById('wheel-area');
   const isDirect = currentMode === 'DIRECT';
   if (isDirect) {
-    // Show wheel whenever DIRECT is selected, engaged or not
     adj.classList.add('hidden');
     wheel.classList.add('visible');
   } else {
@@ -785,10 +1010,7 @@ function toggleEngage() {
   if (apEngaged) {
     const m = getModeObj(currentMode);
     wsSend('MODE:' + (m ? m.wsKey : 'AUTO'));
-    lockedHdg = 247;
-    document.getElementById('ap-hdg-value').textContent  = lockedHdg + '\u00B0';
-    document.getElementById('actual-hdg').textContent    = (lockedHdg + 1) + '\u00B0';
-    document.getElementById('rudder-val').textContent    = '+2\u00B0';
+    // FIX #3: Don't hardcode heading — let server state update the display
   } else {
     stopNfu();
     wsSend('MODE:STBY');
@@ -802,8 +1024,6 @@ function apAdjust(deg) {
   if (deg === 1)   wsSend('STBD1');
   if (deg === -10) wsSend('PORT10');
   if (deg === 10)  wsSend('STBD10');
-  lockedHdg = (lockedHdg + deg + 360) % 360;
-  document.getElementById('ap-hdg-value').textContent = lockedHdg + '\u00B0';
 }
 
 // ── Mode popup ──────────────────────────────────
@@ -901,7 +1121,7 @@ const RANGE_OPTIONS = [0.5, 1, 2, 5, 10, 20];
 let rangeIdx      = 3;
 let ownLat        = null, ownLon = null;
 let aisTargets    = [];
-let vesselHeading = null; // degrees, used for heading-up radar rotation
+let vesselHeading = null;
 
 function setRange(idx) {
   rangeIdx = idx;
@@ -919,14 +1139,12 @@ function updateRingLabels() {
 }
 
 function latLonToRadar(lat, lon) {
-  if (!ownLat) return null;
+  if (!ownLat || !isFinite(ownLat)) return null; // FIX #6
   const dLat = (lat - ownLat) * 60;
   const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
   const scale = 170 / RANGE_OPTIONS[rangeIdx];
-  // North-up x,y
   const nx = dLon * scale;
   const ny = -dLat * scale;
-  // Rotate to heading-up: subtract vessel heading
   const hdgRad = (vesselHeading || 0) * Math.PI / 180;
   const rx =  nx * Math.cos(-hdgRad) - ny * Math.sin(-hdgRad);
   const ry =  nx * Math.sin(-hdgRad) + ny * Math.cos(-hdgRad);
@@ -947,10 +1165,8 @@ function bearingDistance(lat1, lon1, lat2, lon2) {
 
 function updateAisDisplay() {
   updateRingLabels();
-  // Update heading-up indicator
   const hdgLbl = document.getElementById('hdg-up-label');
-  if (hdgLbl) hdgLbl.textContent = vesselHeading !== null ? Math.round(vesselHeading) + '°' : '---°';
-  // Rotate north tick to show where N is relative to heading-up display
+  if (hdgLbl) hdgLbl.textContent = vesselHeading !== null ? Math.round(vesselHeading) + '\u00B0' : '---\u00B0';
   const northTick = document.getElementById('north-tick');
   if (northTick) {
     const ntAngle = -(vesselHeading || 0);
@@ -973,14 +1189,14 @@ function updateAisDisplay() {
 
   aisTargets.forEach(t => {
     const pos = latLonToRadar(t.lat, t.lon);
-    const bd  = ownLat ? bearingDistance(ownLat, ownLon, t.lat, t.lon) : null;
+    const bd  = (ownLat && isFinite(ownLat)) ? bearingDistance(ownLat, ownLon, t.lat, t.lon) : null;
     const inRange = pos && pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
 
     if (inRange && pos) {
-      const cogRad = ((t.cogDeg || t.cog || 0) - (vesselHeading || 0)) * Math.PI / 180;
+      const cogRad = ((t.cog || 0) - (vesselHeading || 0)) * Math.PI / 180;
       const s = 8;
-      if ((t.sogKn || t.sog || 0) > 0.5) {
-        const vl = ((t.sogKn || t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
+      if ((t.sog || 0) > 0.5) {
+        const vl = ((t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
         const line = document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1', pos.x); line.setAttribute('y1', pos.y);
         line.setAttribute('x2', pos.x + Math.sin(cogRad)*vl);
@@ -1016,8 +1232,8 @@ function updateAisDisplay() {
     const row = document.createElement('div');
     row.className = 'ais-row';
     const name = (t.name && t.name.trim()) ? t.name.trim() : '---';
-    const sog  = (t.sogKn || t.sog || 0).toFixed(1);
-    const cog  = (t.cogDeg || t.cog || 0).toFixed(0);
+    const sog  = (t.sog || 0).toFixed(1);
+    const cog  = (t.cog || 0).toFixed(0);
     row.innerHTML =
       '<div><div class="ais-name">' + name + '</div><div class="ais-sub">' + sog + ' kn &middot; ' + cog + '\u00B0</div></div>' +
       '<div><div class="ais-dist">' + (bd ? bd.dist.toFixed(1) + ' nm' : '---') + '</div>' +
@@ -1032,8 +1248,8 @@ function openAisPopup(t, bd) {
   document.getElementById('ais-popup-name').textContent = name;
   const rows = [
     ['MMSI',     t.mmsi || '---'],
-    ['SOG',      ((t.sogKn || t.sog || 0).toFixed(1)) + ' kn'],
-    ['COG',      ((t.cogDeg || t.cog || 0).toFixed(0)) + '\u00B0'],
+    ['SOG',      ((t.sog || 0).toFixed(1)) + ' kn'],
+    ['COG',      ((t.cog || 0).toFixed(0)) + '\u00B0'],
     ['Bearing',  bd ? bd.brg.toFixed(1) + '\u00B0' : '---'],
     ['Distance', bd ? bd.dist.toFixed(2) + ' nm' : '---'],
     ['Position', (t.lat||0).toFixed(4) + '\u00B0N \u00A0 ' + (t.lon||0).toFixed(4) + '\u00B0E'],
@@ -1050,6 +1266,99 @@ function closeAisPopup(e) {
   }
 }
 
+// ════════════════════════════════
+// SETTINGS
+// ════════════════════════════════
+let settingsWifiMode = 'AP';
+let settingsApType   = 'BG';
+
+function requestSettings() {
+  wsSend('SETTINGS:GET');
+}
+
+function applySettingsFromServer(s) {
+  if (s.wifiMode) {
+    settingsWifiMode = s.wifiMode;
+    setWifiMode(s.wifiMode, true);
+  }
+  if (s.apSsid)     document.getElementById('s-ap-ssid').value = s.apSsid;
+  if (s.apPassword)  document.getElementById('s-ap-pass').value = s.apPassword;
+  if (s.staSsid)     document.getElementById('s-sta-ssid').value = s.staSsid;
+  if (s.staPassword) document.getElementById('s-sta-pass').value = s.staPassword;
+  if (s.apType) {
+    settingsApType = s.apType;
+    setApType(s.apType, true);
+  }
+  // Update wifi status display
+  if (s.wifiConnected !== undefined) {
+    const dot = document.getElementById('s-wifi-dot');
+    const info = document.getElementById('s-wifi-info');
+    const ip = document.getElementById('s-wifi-ip');
+    dot.classList.toggle('connected', s.wifiConnected);
+    if (s.wifiMode === 'AP') {
+      info.textContent = 'Access Point: ' + (s.apSsid || 'sensor');
+      ip.textContent = s.ip || '192.168.4.1';
+    } else {
+      info.textContent = s.wifiConnected ? ('Connected to ' + (s.staSsid || '')) : 'Disconnected';
+      ip.textContent = s.ip || '';
+    }
+  }
+}
+
+function setWifiMode(mode, noSend) {
+  settingsWifiMode = mode;
+  document.querySelectorAll('#wifi-mode-group .s-radio').forEach(el => {
+    el.classList.toggle('active', el.dataset.val === mode);
+  });
+  document.getElementById('ap-settings').style.display  = mode === 'AP'  ? 'block' : 'none';
+  document.getElementById('sta-settings').style.display = mode === 'STA' ? 'block' : 'none';
+}
+
+function setApType(type, noSend) {
+  settingsApType = type;
+  document.querySelectorAll('#ap-type-group .s-radio').forEach(el => {
+    el.classList.toggle('active', el.dataset.val === type);
+  });
+}
+
+function saveSettings() {
+  const payload = {
+    wifiMode:    settingsWifiMode,
+    apSsid:      document.getElementById('s-ap-ssid').value.trim(),
+    apPassword:  document.getElementById('s-ap-pass').value,
+    staSsid:     document.getElementById('s-sta-ssid').value.trim(),
+    staPassword: document.getElementById('s-sta-pass').value,
+    apType:      settingsApType
+  };
+
+  // Validate
+  if (settingsWifiMode === 'AP') {
+    if (!payload.apSsid) { showStatus('Network name required', true); return; }
+    if (payload.apPassword.length > 0 && payload.apPassword.length < 8) {
+      showStatus('Password must be at least 8 characters', true); return;
+    }
+  } else {
+    if (!payload.staSsid) { showStatus('SSID required', true); return; }
+  }
+
+  wsSend('SETTINGS:' + JSON.stringify(payload));
+  showStatus('Saving... device will reboot', false);
+}
+
+function factoryReset() {
+  if (confirm('Reset all settings to defaults? The device will reboot.')) {
+    wsSend('SETTINGS:RESET');
+    showStatus('Resetting... device will reboot', false);
+  }
+}
+
+function showStatus(msg, isError) {
+  const el = document.getElementById('s-status');
+  el.textContent = msg;
+  el.className = 's-status ' + (isError ? 'err' : 'ok');
+  if (!isError) setTimeout(() => { el.textContent = ''; el.className = 's-status'; }, 5000);
+}
+
 // ── Init ──────────────────────────────────────
 updateRingLabels();
 setModeDisplay('HEADING');
@@ -1060,20 +1369,6 @@ connect();
 
 )rawliteral";
 
-// ─── Forward declarations ─────────────────────────────────────────────────────
-void SendN2kTankLevel(double, double, tN2kFluidType);
-void SendN2kTemperature(int, tN2kTempSource, double);
-void HandleN2kMessage(const tN2kMsg &);
-void SendModeCommand(const char*);
-void SendNfuCommand(int rate);
-void SendHeadingAdjust(int degrees);
-void BroadcastState();
-void handleWsMessage(const String&);
-int  bounds(int);
-int  findOrAllocAisSlot(uint32_t mmsi);
-void expireAisTargets();
-String buildStateJson();
-
 // ─── NMEA2000 message handler ─────────────────────────────────────────────────
 void HandleN2kMessage(const tN2kMsg &N2kMsg) {
   bool stateChanged = false;
@@ -1081,8 +1376,7 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
   switch (N2kMsg.PGN) {
 
     case 65288: {
-      // Autopilot mode — Navico/B&G
-      // Byte[1]: 0=STBY,1=AUTO,2=NFU,3=NODRIFT,4=WIND,5=NAV
+      // Autopilot mode — Navico/B&G (also used as generic status PGN)
       uint8_t mode = N2kMsg.Data[1];
       const char* modes[] = {"STBY","AUTO","NFU","NODRIFT","WIND","NAV"};
       apMode = (mode < 6) ? modes[mode] : "----";
@@ -1091,7 +1385,7 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
     }
 
     case 65359: {
-      // Autopilot locked heading — Navico/B&G
+      // Autopilot locked heading
       uint16_t raw = (uint16_t)N2kMsg.Data[2] | ((uint16_t)N2kMsg.Data[3] << 8);
       lockedHeading = RadToDeg(raw * 0.0001);
       stateChanged = true;
@@ -1137,7 +1431,6 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       double aws, awa;
       tN2kWindReference ref;
       if (ParseN2kWindSpeed(N2kMsg, sid, aws, awa, ref)) {
-        // Only use apparent wind (ref 0 = true, 1 = magnetic, 2 = apparent)
         if (ref == N2kWind_Apparent) {
           if (!N2kIsNA(aws)) { awsKn  = msToKnots(aws); stateChanged = true; }
           if (!N2kIsNA(awa)) { awaDeg = RadToDeg(awa);  stateChanged = true; }
@@ -1171,13 +1464,10 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
             cog, sog, hdg, rot, navStatus)) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
-          aisTargets[idx].mmsi     = mmsi;
-          aisTargets[idx].lat      = lat;
-          aisTargets[idx].lon      = lon;
-          aisTargets[idx].cogDeg   = N2kIsNA(cog) ? 0 : RadToDeg(cog);
-          aisTargets[idx].sogKn    = N2kIsNA(sog) ? 0 : msToKnots(sog);
-          aisTargets[idx].lastSeen = millis();
-          aisTargets[idx].active   = true;
+          // FIX #13: Deduplicated into helper
+          updateAisTarget(idx, mmsi, lat, lon,
+            N2kIsNA(cog) ? 0 : RadToDeg(cog),
+            N2kIsNA(sog) ? 0 : msToKnots(sog));
           stateChanged = true;
         }
       }
@@ -1198,13 +1488,10 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
             cog, sog, hdg, unit, display, dsc, band, msg22, mode, assigned)) {
         int idx = findOrAllocAisSlot(mmsi);
         if (idx >= 0) {
-          aisTargets[idx].mmsi     = mmsi;
-          aisTargets[idx].lat      = lat;
-          aisTargets[idx].lon      = lon;
-          aisTargets[idx].cogDeg   = N2kIsNA(cog) ? 0 : RadToDeg(cog);
-          aisTargets[idx].sogKn    = N2kIsNA(sog) ? 0 : msToKnots(sog);
-          aisTargets[idx].lastSeen = millis();
-          aisTargets[idx].active   = true;
+          // FIX #13: Deduplicated into helper
+          updateAisTarget(idx, mmsi, lat, lon,
+            N2kIsNA(cog) ? 0 : RadToDeg(cog),
+            N2kIsNA(sog) ? 0 : msToKnots(sog));
           stateChanged = true;
         }
       }
@@ -1257,24 +1544,32 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
     }
   }
 
-  // FIX #6: rate-limited broadcast — max 5Hz regardless of message rate
   if (stateChanged) BroadcastState();
+}
+
+// ─── AIS helper: deduplicated target update ──────────────────────────────────
+// FIX #13: Single function for both Class A and Class B position updates
+void updateAisTarget(int idx, uint32_t mmsi, double lat, double lon, double cog, double sog) {
+  aisTargets[idx].mmsi     = mmsi;
+  aisTargets[idx].lat      = lat;
+  aisTargets[idx].lon      = lon;
+  aisTargets[idx].cogDeg   = cog;
+  aisTargets[idx].sogKn    = sog;
+  aisTargets[idx].lastSeen = millis();
+  aisTargets[idx].active   = true;
 }
 
 // ─── AIS slot management ──────────────────────────────────────────────────────
 int findOrAllocAisSlot(uint32_t mmsi) {
-  // First look for existing slot with this MMSI
   for (int i = 0; i < MAX_AIS_TARGETS; i++) {
     if (aisTargets[i].active && aisTargets[i].mmsi == mmsi) return i;
   }
-  // Then find a free or expired slot
   for (int i = 0; i < MAX_AIS_TARGETS; i++) {
     if (!aisTargets[i].active) {
       memset(&aisTargets[i], 0, sizeof(AisTarget));
       return i;
     }
   }
-  // All slots full — evict the oldest
   int oldest = 0;
   for (int i = 1; i < MAX_AIS_TARGETS; i++) {
     if (aisTargets[i].lastSeen < aisTargets[oldest].lastSeen) oldest = i;
@@ -1292,89 +1587,105 @@ void expireAisTargets() {
   }
 }
 
-// ─── Build state JSON for WebSocket broadcast ─────────────────────────────────
-String buildStateJson() {
-  // FIX #2: heading uses -1 as sentinel so client can distinguish "no data" from heading 0
-  String j = "{";
-  j += "\"mode\":\""   + apMode + "\",";
-  j += "\"heading\":"  + String(lockedHeading, 1) + ",";
-  j += "\"vessel\":"   + String(vesselHeading,  1) + ",";
-  j += "\"depth\":"    + String(depthM,  1) + ",";
-  j += "\"sog\":"      + String(sogKn,   1) + ",";
-  j += "\"cog\":"      + String(cogDeg,  1) + ",";
-  j += "\"aws\":"      + String(awsKn,   1) + ",";
-  j += "\"awa\":"      + String(awaDeg,  1) + ",";
-  j += "\"ownLat\":"   + String(ownLat,  6) + ",";
-  j += "\"ownLon\":"   + String(ownLon,  6) + ",";
-  j += "\"targets\":[";
-  bool first = true;
-  for (int i = 0; i < MAX_AIS_TARGETS; i++) {
-    if (!aisTargets[i].active) continue;
-    if (!first) j += ",";
-    first = false;
-    j += "{";
-    j += "\"mmsi\":"  + String(aisTargets[i].mmsi)         + ",";
-    j += "\"lat\":"   + String(aisTargets[i].lat,   6)     + ",";
-    j += "\"lon\":"   + String(aisTargets[i].lon,   6)     + ",";
-    j += "\"cog\":"   + String(aisTargets[i].cogDeg, 1)    + ",";
-    j += "\"sog\":"   + String(aisTargets[i].sogKn,  1)    + ",";
-    j += "\"name\":\"" + String(aisTargets[i].name) + "\"";
-    j += "}";
+// ─── JSON escape helper ──────────────────────────────────────────────────────
+// FIX #5: Escape AIS names that may contain quotes or backslashes
+static void jsonEscapeStr(char* dest, size_t destSize, const char* src) {
+  size_t di = 0;
+  for (size_t si = 0; src[si] && di < destSize - 1; si++) {
+    char c = src[si];
+    if (c == '"' || c == '\\') {
+      if (di + 2 >= destSize) break;
+      dest[di++] = '\\';
+      dest[di++] = c;
+    } else if (c >= 0x20) {  // skip control characters
+      dest[di++] = c;
+    }
   }
-  j += "]}";
-  return j;
+  dest[di] = 0;
 }
 
-// ─── Broadcast state to all WebSocket clients ─────────────────────────────────
-// FIX #6: rate-limited to BROADCAST_INTERVAL_MS
+// ─── Build state JSON using pre-allocated buffer ─────────────────────────────
+// FIX #10: snprintf into static buffer instead of String concatenation
+void buildStateJson(char* buf, size_t bufSize) {
+  int pos = snprintf(buf, bufSize,
+    "{\"mode\":\"%s\",\"heading\":%.1f,\"vessel\":%.1f,"
+    "\"depth\":%.1f,\"sog\":%.1f,\"cog\":%.1f,"
+    "\"aws\":%.1f,\"awa\":%.1f,"
+    "\"ownLat\":%s,\"ownLon\":%s,"
+    "\"targets\":[",
+    apMode.c_str(), lockedHeading, vesselHeading,
+    depthM, sogKn, cogDeg, awsKn, awaDeg,
+    isnan(ownLat) ? "null" : String(ownLat, 6).c_str(),
+    isnan(ownLon) ? "null" : String(ownLon, 6).c_str()
+  );
+
+  bool first = true;
+  char escapedName[44]; // 20 chars * 2 (worst case all escaped) + null
+  for (int i = 0; i < MAX_AIS_TARGETS && pos < (int)bufSize - 200; i++) {
+    if (!aisTargets[i].active) continue;
+    jsonEscapeStr(escapedName, sizeof(escapedName), aisTargets[i].name);
+    pos += snprintf(buf + pos, bufSize - pos,
+      "%s{\"mmsi\":%lu,\"lat\":%.6f,\"lon\":%.6f,\"cog\":%.1f,\"sog\":%.1f,\"name\":\"%s\"}",
+      first ? "" : ",",
+      (unsigned long)aisTargets[i].mmsi,
+      aisTargets[i].lat, aisTargets[i].lon,
+      aisTargets[i].cogDeg, aisTargets[i].sogKn,
+      escapedName
+    );
+    first = false;
+  }
+  snprintf(buf + pos, bufSize - pos, "]}");
+}
+
+// ─── Broadcast state to all WebSocket clients ────────────────────────────────
 void BroadcastState() {
   unsigned long now = millis();
   if (now - lastBroadcast < BROADCAST_INTERVAL_MS) return;
   lastBroadcast = now;
-  ws.textAll(buildStateJson());
+  buildStateJson(jsonBuf, sizeof(jsonBuf));
+  ws.textAll(jsonBuf);
 }
 
-// ─── Mode command — PGN 65341 ─────────────────────────────────────────────────
-// Byte[1] mode values for AP48 + Zeus:
-// 0x00=STBY,0x01=AUTO,0x02=NFU,0x03=NODRIFT,0x04=WIND,0x05=NAV
-// *** Verify with debug logging against your physical AP48 before use ***
+// ─── Mode command ────────────────────────────────────────────────────────────
 void SendModeCommand(const char* mode) {
   uint8_t modeByte = 0xFF;
-  if      (strcmp(mode,"STBY")    == 0) modeByte = 0x00;
-  else if (strcmp(mode,"AUTO")    == 0) modeByte = 0x01;
-  else if (strcmp(mode,"NFU")     == 0) modeByte = 0x02;
-  else if (strcmp(mode,"NODRIFT") == 0) modeByte = 0x03;
-  else if (strcmp(mode,"WIND")    == 0) modeByte = 0x04;
-  else if (strcmp(mode,"NAV")     == 0) modeByte = 0x05;
+  if      (strcmp(mode,"STBY")    == 0) modeByte = apCfg.modeStby;
+  else if (strcmp(mode,"AUTO")    == 0) modeByte = apCfg.modeAuto;
+  else if (strcmp(mode,"NFU")     == 0) modeByte = apCfg.modeNfu;
+  else if (strcmp(mode,"NODRIFT") == 0) modeByte = apCfg.modeNoDrift;
+  else if (strcmp(mode,"WIND")    == 0) modeByte = apCfg.modeWind;
+  else if (strcmp(mode,"NAV")     == 0) modeByte = apCfg.modeNav;
   if (modeByte == 0xFF) return;
 
   tN2kMsg N2kMsg;
-  N2kMsg.Init(6, 65341, 204, 255);
+  N2kMsg.Init(6, apCfg.modePgn, apCfg.srcAddr, 255);
   N2kMsg.AddByte(0x01); N2kMsg.AddByte(modeByte); N2kMsg.AddByte(0x00);
   N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
   N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
   NMEA2000.SendMsg(N2kMsg);
 }
 
-// ─── NFU / Direct steering — PGN 65345 ───────────────────────────────────────
+// ─── NFU / Direct steering ───────────────────────────────────────────────────
 void SendNfuCommand(int rate) {
   if (rate == 0) return;
   uint8_t  dir    = (rate > 0) ? 1 : 0;
   uint16_t amount = (uint16_t)(abs(rate) * 0.1745);
   tN2kMsg N2kMsg;
-  N2kMsg.Init(6, 65345, 204, 255);
+  N2kMsg.Init(6, apCfg.steerPgn, apCfg.srcAddr, 255);
   N2kMsg.AddByte(0x01); N2kMsg.AddByte(dir);
   N2kMsg.AddByte(amount & 0xFF); N2kMsg.AddByte((amount >> 8) & 0xFF);
   N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
   NMEA2000.SendMsg(N2kMsg);
 }
 
-// ─── Heading adjust — PGN 65345 ──────────────────────────────────────────────
+// ─── Heading adjust ──────────────────────────────────────────────────────────
+// FIX #2: Guard against uint16_t overflow for large angles
 void SendHeadingAdjust(int degrees) {
-  uint16_t amount = (uint16_t)(abs(degrees) * 10000 * M_PI / 180.0);
+  int clamped = constrain(abs(degrees), 0, 30); // safe range for uint16_t
+  uint16_t amount = (uint16_t)(clamped * 10000.0 * M_PI / 180.0);
   uint8_t  dir    = (degrees > 0) ? 1 : 0;
   tN2kMsg N2kMsg;
-  N2kMsg.Init(6, 65345, 204, 255);
+  N2kMsg.Init(6, apCfg.steerPgn, apCfg.srcAddr, 255);
   N2kMsg.AddByte(0x01); N2kMsg.AddByte(dir);
   N2kMsg.AddByte(amount & 0xFF); N2kMsg.AddByte((amount >> 8) & 0xFF);
   N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
@@ -1397,6 +1708,114 @@ void handleWsMessage(const String& msg) {
   else if   (msg == "STBD1")  { SendHeadingAdjust(1);   M5.dis.drawpix(0, 0x0000ff); }
   else if   (msg == "PORT10") { SendHeadingAdjust(-10); M5.dis.drawpix(0, 0x0000ff); }
   else if   (msg == "STBD10") { SendHeadingAdjust(10);  M5.dis.drawpix(0, 0x0000ff); }
+  else if   (msg.startsWith("SETTINGS:")) {
+    handleSettingsMessage(msg.substring(9));
+  }
+}
+
+// ─── Settings message handler ─────────────────────────────────────────────────
+void handleSettingsMessage(const String& msg) {
+  if (msg == "GET") {
+    // Send current settings to client
+    char settingsBuf[512];
+    snprintf(settingsBuf, sizeof(settingsBuf),
+      "{\"settings\":{"
+      "\"wifiMode\":\"%s\","
+      "\"apSsid\":\"%s\","
+      "\"apPassword\":\"%s\","
+      "\"staSsid\":\"%s\","
+      "\"staPassword\":\"%s\","
+      "\"apType\":\"%s\","
+      "\"wifiConnected\":true,"
+      "\"ip\":\"%s\""
+      "}}",
+      wifiMode, apSsid, apPassword, staSsid, staPassword, apType,
+      (strcmp(wifiMode, "AP") == 0) ? WiFi.softAPIP().toString().c_str() : WiFi.localIP().toString().c_str()
+    );
+    ws.textAll(settingsBuf);
+
+  } else if (msg == "RESET") {
+    // Factory reset
+    prefs.begin("sensor", false);
+    prefs.clear();
+    prefs.end();
+    Serial.println("Factory reset — rebooting");
+    delay(500);
+    ESP.restart();
+
+  } else {
+    // Parse JSON settings payload
+    // Simple manual JSON parsing (no ArduinoJson dependency)
+    auto extractField = [](const String& json, const char* key, char* dest, size_t maxLen) {
+      String search = String("\"") + key + "\":\"";
+      int start = json.indexOf(search);
+      if (start < 0) return;
+      start += search.length();
+      int end = json.indexOf("\"", start);
+      if (end < 0 || end == start) return;
+      String val = json.substring(start, end);
+      strncpy(dest, val.c_str(), maxLen - 1);
+      dest[maxLen - 1] = 0;
+    };
+
+    char newWifiMode[4] = "";
+    char newApSsid[33] = "";
+    char newApPass[65] = "";
+    char newStaSsid[33] = "";
+    char newStaPass[65] = "";
+    char newApType[12] = "";
+
+    extractField(msg, "wifiMode",    newWifiMode, sizeof(newWifiMode));
+    extractField(msg, "apSsid",      newApSsid,   sizeof(newApSsid));
+    extractField(msg, "apPassword",  newApPass,    sizeof(newApPass));
+    extractField(msg, "staSsid",     newStaSsid,   sizeof(newStaSsid));
+    extractField(msg, "staPassword", newStaPass,    sizeof(newStaPass));
+    extractField(msg, "apType",      newApType,    sizeof(newApType));
+
+    // Validate
+    if (strlen(newWifiMode) == 0) return;
+
+    // Save to Preferences
+    prefs.begin("sensor", false);
+    prefs.putString("wifiMode",   newWifiMode);
+    prefs.putString("apSsid",     newApSsid);
+    prefs.putString("apPassword", newApPass);
+    prefs.putString("staSsid",    newStaSsid);
+    prefs.putString("staPassword",newStaPass);
+    prefs.putString("apType",     newApType);
+    prefs.end();
+
+    Serial.println("Settings saved — rebooting");
+    delay(500);
+    ESP.restart();
+  }
+}
+
+// ─── Load settings from NVS ──────────────────────────────────────────────────
+void loadSettings() {
+  prefs.begin("sensor", true); // read-only
+
+  String wm = prefs.getString("wifiMode", "AP");
+  strncpy(wifiMode, wm.c_str(), sizeof(wifiMode) - 1);
+
+  String as = prefs.getString("apSsid", "sensor");
+  strncpy(apSsid, as.c_str(), sizeof(apSsid) - 1);
+
+  String ap = prefs.getString("apPassword", "12345678");
+  strncpy(apPassword, ap.c_str(), sizeof(apPassword) - 1);
+
+  String ss = prefs.getString("staSsid", "");
+  strncpy(staSsid, ss.c_str(), sizeof(staSsid) - 1);
+
+  String sp = prefs.getString("staPassword", "");
+  strncpy(staPassword, sp.c_str(), sizeof(staPassword) - 1);
+
+  String at = prefs.getString("apType", "BG");
+  strncpy(apType, at.c_str(), sizeof(apType) - 1);
+
+  prefs.end();
+
+  applyApConfig();
 }
 
 // ─── WebSocket event handler ──────────────────────────────────────────────────
@@ -1405,8 +1824,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
   if (type == WS_EVT_DATA) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (info->final && info->index == 0 && info->len == len) {
-      // FIX #1: copy into local buffer before null-terminating
-      char buf[64];
+      // Use larger buffer for settings JSON payloads
+      char buf[384];
       size_t copyLen = min(len, sizeof(buf) - 1);
       memcpy(buf, data, copyLen);
       buf[copyLen] = 0;
@@ -1414,31 +1833,64 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
       msg.trim();
       handleWsMessage(msg);
     }
-    // Note: multi-packet frames silently dropped — acceptable for short commands
   }
-  // FIX: kill NFU immediately on any client disconnect
   if (type == WS_EVT_DISCONNECT) {
     nfuRate = 0;
   }
 }
 
+// ─── WiFi setup ──────────────────────────────────────────────────────────────
+void setupWifi() {
+  if (strcmp(wifiMode, "STA") == 0 && strlen(staSsid) > 0) {
+    // Try to join existing network
+    Serial.printf("Connecting to WiFi: %s\n", staSsid);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(staSsid, staPassword);
+
+    // Wait up to 10 seconds
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("\nConnected! IP: %s\n", WiFi.localIP().toString().c_str());
+      return;
+    }
+
+    // Fallback to AP mode
+    Serial.println("\nSTA connection failed — falling back to AP mode");
+    WiFi.disconnect();
+  }
+
+  // AP mode (default or fallback)
+  WiFi.mode(WIFI_AP);
+  if (strlen(apPassword) >= 8) {
+    WiFi.softAP(apSsid, apPassword);
+  } else {
+    WiFi.softAP(apSsid); // open network if password too short
+  }
+  Serial.printf("AP started: %s  IP: %s\n", apSsid, WiFi.softAPIP().toString().c_str());
+}
+
 // ─── SETUP ───────────────────────────────────────────────────────────────────
 void setup() {
-  // FIX #4: NodeAddress and preferences removed — not used
-  // FIX #3: ReceiveMessages removed — not needed, SetMsgHandler receives all
-
   M5.begin(true, false, true);
   Serial.begin(115200);
   delay(500);
   Serial.println("\n\nSensor hub starting...");
   M5.dis.drawpix(0, 0xff0000);
 
+  // Load persistent settings
+  loadSettings();
+
   // Initialise AIS target array
   memset(aisTargets, 0, sizeof(aisTargets));
 
-  WiFi.softAP(ssid, password);
-  Serial.print("AP IP: ");
-  Serial.println(WiFi.softAPIP());
+  // WiFi (AP or STA based on settings)
+  setupWifi();
 
   udp.begin(udpPort);
 
@@ -1448,11 +1900,12 @@ void setup() {
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
   server.begin();
-  Serial.println("Web server up at http://192.168.4.1");
+  Serial.println("Web server up");
 
   NMEA2000.SetN2kCANSendFrameBufSize(250);
+  NMEA2000.SetN2kCANReceiveFrameBufSize(250); // FIX #16: Set receive buffer too
   NMEA2000.SetProductInformation("00000001", 100, "Sensor Network",
-                                 "1.0007 Apr 2026", "1.0007 Apr 2026");
+                                 "1.0008 Apr 2026", "1.0008 Apr 2026");
   NMEA2000.SetDeviceInformation(1, 150, 75, 2046);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
   NMEA2000.SetMsgHandler(HandleN2kMessage);
@@ -1469,13 +1922,18 @@ void setup() {
 }
 
 // ─── LOOP ────────────────────────────────────────────────────────────────────
-// FIX #9: delay(50) removed — loop runs free, all timing via millis()
 void loop() {
   NMEA2000.ParseMessages();
-  ws.cleanupClients();
 
-  // FIX #5: NFU send rate decoupled from loop speed — sends at NFU_SEND_INTERVAL_MS
   unsigned long now = millis();
+
+  // FIX #11: Only clean up WebSocket clients once per second
+  if (now - lastCleanup >= CLEANUP_INTERVAL_MS) {
+    ws.cleanupClients();
+    lastCleanup = now;
+  }
+
+  // NFU steering with timeout and rate-limited sends
   if (nfuRate != 0) {
     if (now - nfuLastMsg > NFU_TIMEOUT_MS) {
       nfuRate = 0;
@@ -1493,36 +1951,44 @@ void loop() {
     lastExpiry = now;
   }
 
-  // UDP sensor handling (unchanged)
+  // UDP sensor handling
+  // FIX #15: Use C string functions instead of Arduino String where possible
   int packetSize = udp.parsePacket();
   if (packetSize) {
     int len = udp.read(incomingPacket, sizeof(incomingPacket) - 1);
     if (len > 0) {
       M5.dis.drawpix(0, 0x0000ff);
       incomingPacket[len] = 0;
-      String sentence = String(incomingPacket);
-      Serial.print("UDP: ");
-      Serial.print(sentence);
 
-      if (sentence.startsWith("$XDR")) {
-        int start = sentence.indexOf(",F,");
-        int end   = sentence.indexOf(",L,", start);
-        if (start > 0 && end > start) {
-          String valueStr = sentence.substring(start + 3, end);
-          if (sentence.indexOf("FUEL") > 0) {
-            fuelLevel = bounds((int)Interpolation::Linear(fuelInput, fuelOutput, fuelValues, valueStr.toFloat(), true));
+      Serial.print("UDP: ");
+      Serial.print(incomingPacket);
+
+      if (strncmp(incomingPacket, "$XDR", 4) == 0) {
+        // Find ",F," marker
+        const char* fMarker = strstr(incomingPacket, ",F,");
+        const char* lMarker = fMarker ? strstr(fMarker, ",L,") : NULL;
+        if (fMarker && lMarker && lMarker > fMarker + 3) {
+          // Extract value between ",F," and ",L,"
+          char valBuf[16];
+          int valLen = min((int)(lMarker - fMarker - 3), (int)sizeof(valBuf) - 1);
+          memcpy(valBuf, fMarker + 3, valLen);
+          valBuf[valLen] = 0;
+          float value = atof(valBuf);
+
+          if (strstr(incomingPacket, "FUEL")) {
+            fuelLevel = bounds((int)Interpolation::Linear(fuelInput, fuelOutput, fuelValues, value, true));
             SendN2kTankLevel(fuelLevel, fuelCapacity, N2kft_Fuel);
-            Serial.print(" / fuel: "); Serial.println(fuelLevel);
-          } else if (sentence.indexOf("WATER") > 0) {
-            waterLevel = bounds((int)Interpolation::Linear(waterInput, waterOutput, waterValues, valueStr.toFloat(), true));
+            Serial.printf(" / fuel: %d\n", fuelLevel);
+          } else if (strstr(incomingPacket, "WATER")) {
+            waterLevel = bounds((int)Interpolation::Linear(waterInput, waterOutput, waterValues, value, true));
             SendN2kTankLevel(waterLevel, waterCapacity, N2kft_Water);
-            Serial.print(" / water: "); Serial.println(waterLevel);
-          } else if (sentence.indexOf("temp0") > 0) {
-            SendN2kTemperature(1, N2kts_ExhaustGasTemperature, CToKelvin(valueStr.toDouble()));
-            Serial.print(" / exhaust: "); Serial.println(valueStr);
-          } else if (sentence.indexOf("temp1") > 0) {
-            SendN2kTemperature(2, N2kts_EngineRoomTemperature, CToKelvin(valueStr.toDouble()));
-            Serial.print(" / engine room: "); Serial.println(valueStr);
+            Serial.printf(" / water: %d\n", waterLevel);
+          } else if (strstr(incomingPacket, "temp0")) {
+            SendN2kTemperature(1, N2kts_ExhaustGasTemperature, CToKelvin((double)value));
+            Serial.printf(" / exhaust: %.1f\n", value);
+          } else if (strstr(incomingPacket, "temp1")) {
+            SendN2kTemperature(2, N2kts_EngineRoomTemperature, CToKelvin((double)value));
+            Serial.printf(" / engine room: %.1f\n", value);
           }
         }
       }
