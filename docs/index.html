@@ -287,470 +287,61 @@
     /* ════════════════════════════════
        SETTINGS SCREEN
     ════════════════════════════════ */
-    #screen-settings {
-      overflow-y: auto; padding-bottom: 32px;
-    }
+    #screen-settings { overflow-y: auto; padding-bottom: 32px; }
 
-    /* Back button */
     .settings-back {
       display: flex; align-items: center; gap: 8px;
       margin-bottom: 20px; cursor: pointer;
-      color: #888; font-size: 13px; font-weight: 600;
-      letter-spacing: 1px;
+      color: #888; font-size: 13px; font-weight: 600; letter-spacing: 1px;
     }
     .settings-back:active { color: #fff; }
     .settings-back svg { width: 18px; height: 18px; }
 
-    /* Section group */
     .s-group { margin-bottom: 28px; }
-    .s-group-label {
-      font-size: 11px; color: #555; letter-spacing: 2px;
-      font-weight: 700; margin-bottom: 8px; padding: 0 4px;
-    }
-    .s-card {
-      background: #1a1a1a; border-radius: 8px; overflow: hidden;
-    }
+    .s-group-label { font-size: 11px; color: #555; letter-spacing: 2px; font-weight: 700; margin-bottom: 8px; padding: 0 4px; }
+    .s-card { background: #1a1a1a; border-radius: 8px; overflow: hidden; }
 
-    /* List-style fields inside card */
-    .s-row {
-      display: flex; align-items: center;
-      padding: 14px 16px; border-bottom: 1px solid #222;
-      position: relative;
-    }
+    .s-row { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #222; }
     .s-row:last-child { border-bottom: none; }
-    .s-row-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-right: 12px;
-    }
+    .s-row-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px; }
     .s-row-icon svg { width: 18px; height: 18px; }
     .s-row-body { flex: 1; min-width: 0; }
     .s-row-label { font-size: 14px; color: #fff; font-weight: 500; }
     .s-row-sub   { font-size: 11px; color: #555; margin-top: 2px; }
-    .s-row-value { font-size: 13px; color: #888; flex-shrink: 0; margin-left: 8px; }
-
-    /* Status dot */
-    .s-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #444; flex-shrink: 0; margin-left: 8px;
-    }
+    .s-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; margin-left: 8px; }
     .s-dot.on { background: #00cc55; }
 
-    /* Inline input (full-width, floated label style) */
-    .s-field-card {
-      background: #1a1a1a; border-radius: 8px;
-      padding: 12px 16px; margin-bottom: 2px;
-    }
-    .s-field-card + .s-field-card { margin-top: 2px; }
-    .s-field-label {
-      font-size: 11px; color: #555; letter-spacing: 1px;
-      margin-bottom: 5px; font-weight: 600;
-    }
+    .s-field-card { background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin-bottom: 2px; }
+    .s-field-label { font-size: 11px; color: #555; letter-spacing: 1px; margin-bottom: 5px; font-weight: 600; }
     .s-input {
       width: 100%; background: transparent; border: none;
       border-bottom: 1.5px solid #333; padding: 4px 0 6px;
-      color: #fff; font-size: 16px;
-      font-family: -apple-system, sans-serif;
+      color: #fff; font-size: 16px; font-family: -apple-system, sans-serif;
       outline: none; user-select: text; -webkit-user-select: text;
     }
     .s-input:focus { border-bottom-color: #00cc55; }
     .s-input::placeholder { color: #444; font-size: 14px; }
 
-    /* Segmented control for radio groups */
-    .s-segment {
-      display: flex; background: #111;
-      border-radius: 8px; padding: 3px; gap: 2px;
-      margin-top: 4px;
-    }
-    .s-seg-btn {
-      flex: 1; text-align: center; padding: 9px 4px;
-      border-radius: 6px; font-size: 12px; font-weight: 700;
-      color: #555; cursor: pointer; transition: all 0.15s;
-      letter-spacing: 0.5px;
-    }
-    .s-seg-btn.active {
-      background: #2a2a2a; color: #fff;
-    }
+    .s-segment { display: flex; background: #111; border-radius: 8px; padding: 3px; gap: 2px; margin-top: 4px; }
+    .s-seg-btn { flex: 1; text-align: center; padding: 9px 4px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #555; cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px; }
+    .s-seg-btn.active { background: #2a2a2a; color: #fff; }
     .s-seg-btn:active { opacity: 0.8; }
 
-    /* AP type chips */
     .s-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .s-chip {
-      background: #111; border: 1.5px solid #2a2a2a;
-      border-radius: 20px; padding: 7px 14px;
-      font-size: 12px; font-weight: 700; color: #555;
-      cursor: pointer; transition: all 0.15s;
-    }
+    .s-chip { background: #111; border: 1.5px solid #2a2a2a; border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 700; color: #555; cursor: pointer; transition: all 0.15s; }
     .s-chip.active { border-color: #00cc55; color: #00cc55; background: #051a0a; }
     .s-chip:active { opacity: 0.8; }
 
-    /* Action buttons */
-    .s-action-btn {
-      display: flex; align-items: center; justify-content: center;
-      gap: 10px; width: 100%; padding: 15px;
-      border-radius: 8px; border: none; margin-top: 8px;
-      font-size: 15px; font-weight: 700; cursor: pointer;
-      letter-spacing: 0.5px; transition: opacity 0.15s;
-    }
+    .s-action-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 15px; border-radius: 8px; border: none; margin-top: 8px; font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: opacity 0.15s; }
     .s-action-btn:active { opacity: 0.75; }
-    .s-action-btn.primary {
-      background: #00cc55; color: #000;
-    }
-    .s-action-btn.danger {
-      background: #1a1a1a; color: #cc4400;
-      border: 1.5px solid #2a2a2a;
-    }
+    .s-action-btn.primary { background: #00cc55; color: #000; }
+    .s-action-btn.danger  { background: #1a1a1a; color: #cc4400; border: 1.5px solid #2a2a2a; }
     .s-action-btn svg { width: 18px; height: 18px; }
 
-    .s-status {
-      font-size: 12px; text-align: center;
-      margin-top: 10px; min-height: 18px;
-    }
+    .s-status { font-size: 12px; text-align: center; margin-top: 10px; min-height: 18px; }
     .s-status.ok  { color: #00cc55; }
     .s-status.err { color: #cc4400; }
-
-    .s-note {
-      font-size: 11px; color: #444; margin-top: 8px;
-      line-height: 1.5; padding: 0 4px;
-    }
-TF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>Nav</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-
-    body {
-      font-family: -apple-system, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      height: 100dvh;
-      overflow: hidden;
-    }
-
-    /* ── Screens ── */
-    #screens {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; padding: 16px 16px 0; }
-    .screen.active { display: flex; }
-
-    /* ── Tab bar ── */
-    #tabbar {
-      display: flex;
-      background: #1a1a1a;
-      border-top: 1px solid #2a2a2a;
-      padding: 6px 0 10px;
-      flex-shrink: 0;
-    }
-    .tab {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; gap: 3px; padding: 6px 0;
-      cursor: pointer; color: #555;
-      font-size: 11px; font-weight: 600; letter-spacing: 1px;
-      transition: color 0.15s;
-    }
-    .tab svg { width: 22px; height: 22px; }
-    .tab.active { color: #fff; }
-
-    /* ════════════════════════════════
-       AUTOPILOT SCREEN
-    ════════════════════════════════ */
-    #screen-ap { padding-bottom: 0; }
-
-    .ap-topbar {
-      display: flex; justify-content: space-between;
-      align-items: center; margin-bottom: 6px;
-    }
-    .ap-label { font-size: 13px; font-weight: 600; color: #666; letter-spacing: 3px; }
-
-    #ap-status {
-      font-size: 56px; font-weight: 800;
-      letter-spacing: 2px; line-height: 1;
-      margin-bottom: 16px; transition: color 0.2s;
-      color: #cc2200;
-    }
-
-    .heading-box {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 18px 12px; margin-bottom: 14px;
-    }
-    .heading-box-label {
-      font-size: 11px; color: #666; letter-spacing: 3px;
-      text-align: center; margin-bottom: 4px;
-    }
-    #ap-hdg-value {
-      font-size: 72px; font-weight: 800; color: #fff;
-      text-align: center; line-height: 1; letter-spacing: -2px;
-      margin-bottom: 10px;
-    }
-    .heading-divider { border: none; border-top: 1px solid #2a2a2a; margin-bottom: 8px; }
-    .heading-secondary { display: flex; justify-content: space-between; padding: 0 4px; }
-    .heading-secondary span { font-size: 13px; color: #666; letter-spacing: 1px; }
-    .heading-secondary b { color: #ccc; font-weight: 700; }
-
-    /* Adjust buttons */
-    #adj-grid {
-      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
-      gap: 10px; margin-bottom: 14px; transition: opacity 0.2s;
-    }
-    #adj-grid.disabled { opacity: 0.25; pointer-events: none; }
-    #adj-grid.hidden   { display: none; }
-
-    .adj-btn {
-      border: 2px solid #aaa; border-radius: 4px; aspect-ratio: 1;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      cursor: pointer; gap: 5px;
-    }
-    .adj-btn:active { background: #222; }
-    .adj-btn svg    { width: 26px; height: 26px; }
-    .adj-btn span   { font-size: 11px; color: #aaa; font-weight: 600; letter-spacing: 1px; }
-
-    /* Wheel */
-    #wheel-area {
-      display: none; flex-direction: column;
-      align-items: center; margin-bottom: 14px; gap: 8px;
-    }
-    #wheel-area.visible { display: flex; }
-    .wheel-hint { font-size: 10px; color: #555; letter-spacing: 2px; text-align: center; }
-    #wheel-svg  { touch-action: none; cursor: grab; }
-
-    .rudder-bar-wrap {
-      width: 100%; height: 14px; background: #1a1a1a;
-      border-radius: 4px; position: relative; overflow: hidden;
-    }
-    #rudder-bar-port { position: absolute; right: 50%; top: 0; bottom: 0; background: #2266aa; width: 0; }
-    #rudder-bar-stbd { position: absolute; left:  50%; top: 0; bottom: 0; background: #772299; width: 0; }
-    .rudder-centre   { position: absolute; left:  50%; top: 0; bottom: 0; width: 1px; background: #333; transform: translateX(-50%); }
-    .rudder-labels   { display: flex; justify-content: space-between; font-size: 10px; color: #444; font-weight: 700; letter-spacing: 1px; width: 100%; }
-
-    /* Bottom controls */
-    .ap-bottom { margin-top: auto; padding-bottom: 14px; }
-
-    .mode-row {
-      display: flex; align-items: center;
-      border: 1.5px solid #444; border-radius: 4px;
-      padding: 14px 16px; margin-bottom: 10px; cursor: pointer;
-    }
-    .mode-row:active { background: #1a1a1a; }
-    .mode-prefix { font-size: 14px; color: #888; font-weight: 600; letter-spacing: 1px; margin-right: 10px; flex-shrink: 0; }
-    #mode-value  { font-size: 18px; font-weight: 800; letter-spacing: 1px; flex: 1; color: #00cc55; }
-
-    .engage-btn {
-      border: 2px solid #006622; border-radius: 4px;
-      padding: 17px; display: flex; align-items: center;
-      justify-content: center; gap: 14px; cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .engage-btn:active { opacity: 0.85; }
-    #engage-label { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: 2px; }
-
-    #conn { font-size: 11px; color: #444; text-align: center; margin-top: 8px; }
-
-    /* Mode popup */
-    .popup-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85); z-index: 100;
-      align-items: flex-end; justify-content: center;
-    }
-    .popup-overlay.open { display: flex; }
-    .popup-sheet {
-      background: #1a1a1a; border-radius: 12px 12px 0 0;
-      width: 100%; max-width: 480px; padding: 16px 20px 32px;
-    }
-    .popup-handle { width: 36px; height: 4px; background: #333; border-radius: 2px; margin: 0 auto 18px; }
-    .popup-title  { font-size: 10px; color: #555; letter-spacing: 3px; margin-bottom: 12px; }
-    .mode-popup-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 14px; border-radius: 6px; margin-bottom: 7px;
-      cursor: pointer; border: 1.5px solid #222;
-    }
-    .mode-popup-row:active { opacity: 0.8; }
-    .mode-popup-name { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
-    .mode-popup-desc { font-size: 10px; color: #555; margin-top: 2px; }
-    .mode-check {
-      width: 20px; height: 20px; border-radius: 50%;
-      border: 1.5px solid #333; display: flex;
-      align-items: center; justify-content: center;
-      flex-shrink: 0; font-size: 11px; font-weight: 800; color: #000;
-    }
-
-    /* ════════════════════════════════
-       INSTRUMENTS SCREEN
-    ════════════════════════════════ */
-    .inst-screen-title {
-      font-size: 11px; color: #555; letter-spacing: 3px;
-      margin-bottom: 14px; font-weight: 600;
-    }
-
-    /* SOG — full width hero */
-    .inst-hero {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 18px; margin-bottom: 10px;
-      display: flex; align-items: flex-end; justify-content: space-between;
-    }
-    .inst-hero-left .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
-    .inst-hero-left .inst-big  { font-size: 64px; font-weight: 800; color: #00cc55; line-height: 1; letter-spacing: -2px; }
-    .inst-hero-left .inst-unit { font-size: 13px; color: #555; letter-spacing: 1px; margin-top: 2px; }
-    .inst-hero-right { text-align: right; padding-bottom: 6px; }
-    .inst-hero-right .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
-    .inst-hero-right .inst-sub  { font-size: 28px; font-weight: 800; color: #aaa; line-height: 1; }
-
-    /* 2-col grid for rest */
-    .inst-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; margin-bottom: 10px;
-    }
-    .inst-box {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 12px;
-    }
-    .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
-    .inst-big  { font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
-    .inst-unit { font-size: 11px; color: #555; letter-spacing: 1px; margin-top: 3px; }
-
-    /* depth — full width bottom */
-    .inst-row {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 18px; display: flex;
-      align-items: flex-end; justify-content: space-between;
-    }
-
-    /* Wind arrow */
-    .awa-arrow-wrap { display: flex; justify-content: flex-end; padding-bottom: 2px; }
-    #awa-svg { width: 40px; height: 40px; }
-
-    /* ════════════════════════════════
-       AIS SCREEN
-    ════════════════════════════════ */
-    .ais-screen-title {
-      font-size: 11px; color: #555; letter-spacing: 3px;
-      margin-bottom: 10px; font-weight: 600;
-    }
-    #ais-range-row {
-      display: flex; align-items: center; gap: 6px;
-      margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px;
-    }
-    .range-label { font-size: 10px; color: #555; letter-spacing: 1px; flex-shrink: 0; }
-    .range-pills { display: flex; gap: 5px; flex-shrink: 0; }
-    .range-pill {
-      background: #1a1a1a; border: 1.5px solid #333;
-      color: #555; border-radius: 20px; padding: 4px 12px;
-      font-size: 12px; font-weight: 700; cursor: pointer;
-      letter-spacing: 0.5px;
-    }
-    .range-pill.active { border-color: #fff; color: #fff; }
-
-    #radar-wrap { width: 100%; aspect-ratio: 1; max-width: 100%; position: relative; }
-    #radar-svg  { width: 100%; height: 100%; }
-
-    #ais-list {
-      width: 100%; margin-top: 8px;
-      overflow-y: auto; flex: 1;
-    }
-    .ais-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 0; border-bottom: 1px solid #222; cursor: pointer;
-    }
-    .ais-row:active { background: #1a1a1a; }
-    .ais-name { font-size: 13px; font-weight: 700; color: #ff6644; }
-    .ais-sub  { font-size: 10px; color: #555; margin-top: 1px; }
-    .ais-dist { text-align: right; font-size: 13px; font-weight: 700; color: #ccc; }
-    .ais-brg  { font-size: 10px; color: #555; text-align: right; margin-top: 1px; }
-    #ais-no-data { color: #444; text-align: center; padding: 20px; font-size: 13px; }
-
-    /* AIS target popup */
-    #ais-popup {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85); z-index: 200;
-      align-items: flex-end; justify-content: center;
-    }
-    #ais-popup.visible { display: flex; }
-    #ais-popup-card {
-      background: #1a1a1a; border-radius: 12px 12px 0 0;
-      width: 100%; max-width: 480px; padding: 16px 20px 32px;
-    }
-    #ais-popup-name {
-      font-size: 20px; font-weight: 800; color: #ff6644;
-      margin-bottom: 14px; letter-spacing: 1px;
-    }
-    .popup-row {
-      display: flex; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid #222; font-size: 13px;
-    }
-    .popup-row:last-child { border-bottom: none; }
-    .popup-key   { color: #555; }
-    .popup-value { color: #fff; font-weight: 700; }
-    #ais-popup-close {
-      margin-top: 16px; width: 100%; background: #222;
-      border: 1.5px solid #333; color: #ccc;
-      border-radius: 4px; padding: 12px;
-      font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px;
-    }
-    #ais-popup-close:active { background: #2a2a2a; }
-
-    /* ════════════════════════════════
-       SETTINGS SCREEN
-    ════════════════════════════════ */
-    #screen-settings { overflow-y: auto; padding-bottom: 24px; }
-
-    .settings-title {
-      font-size: 11px; color: #555; letter-spacing: 3px;
-      margin-bottom: 16px; font-weight: 600;
-    }
-    .settings-section {
-      border: 1.5px solid #333; border-radius: 4px;
-      padding: 14px 16px; margin-bottom: 12px;
-    }
-    .settings-section-label {
-      font-size: 10px; color: #555; letter-spacing: 3px;
-      margin-bottom: 12px; font-weight: 600;
-    }
-    .s-field { margin-bottom: 10px; }
-    .s-field:last-child { margin-bottom: 0; }
-    .s-label { font-size: 11px; color: #888; letter-spacing: 1px; margin-bottom: 4px; font-weight: 600; }
-    .s-input {
-      width: 100%; background: #0d0d0d; border: 1.5px solid #333;
-      border-radius: 4px; padding: 10px 12px; color: #fff;
-      font-size: 14px; font-family: -apple-system, sans-serif;
-      outline: none; user-select: text; -webkit-user-select: text;
-    }
-    .s-input:focus { border-color: #555; }
-    .s-input::placeholder { color: #333; }
-    .s-radio-group { display: flex; flex-wrap: wrap; gap: 6px; }
-    .s-radio {
-      background: #0d0d0d; border: 1.5px solid #333;
-      border-radius: 4px; padding: 8px 14px;
-      font-size: 12px; font-weight: 700; color: #555;
-      cursor: pointer; letter-spacing: 0.5px; transition: all 0.15s;
-    }
-    .s-radio.active { border-color: #00cc55; color: #00cc55; background: #051a0a; }
-    .s-radio:active { opacity: 0.8; }
-    .s-btn {
-      width: 100%; background: #0d0d0d; border: 1.5px solid #006622;
-      border-radius: 4px; padding: 13px; margin-top: 10px;
-      font-size: 14px; font-weight: 700; color: #00cc55;
-      cursor: pointer; letter-spacing: 1px; transition: background 0.15s;
-    }
-    .s-btn:active { background: #051a0a; }
-    .s-btn.danger { border-color: #662200; color: #cc4400; }
-    .s-btn.danger:active { background: #1a0d00; }
-    .s-status { font-size: 11px; color: #555; text-align: center; margin-top: 8px; min-height: 16px; }
-    .s-status.ok  { color: #00cc55; }
-    .s-status.err { color: #cc4400; }
-    .s-note { font-size: 10px; color: #444; margin-top: 6px; line-height: 1.4; }
-    .s-wifi-status { display: flex; align-items: center; gap: 8px; padding: 8px 0; margin-bottom: 6px; }
-    .s-wifi-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; }
-    .s-wifi-dot.connected { background: #00cc55; }
-    .s-wifi-info { font-size: 12px; color: #888; }
-    .s-wifi-ip   { font-size: 11px; color: #555; }
+    .s-note { font-size: 11px; color: #444; margin-top: 8px; line-height: 1.5; padding: 0 4px; }
   </style>
 </head>
 <body>
@@ -762,7 +353,7 @@ TF-8">
 
     <div class="ap-topbar">
       <div class="ap-label">AUTOPILOT</div>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+      <svg onclick="showScreen('settings')" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
@@ -960,15 +551,13 @@ TF-8">
   <!-- ════ SETTINGS ════ -->
   <div id="screen-settings" class="screen">
 
-    <!-- Back -->
-    <div class="settings-back" onclick="showScreen('ap')">
+    <div class="settings-back" onclick="goBack()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
       BACK
     </div>
 
-    <!-- Network status -->
     <div class="s-group">
       <div class="s-group-label">NETWORK</div>
       <div class="s-card">
@@ -981,14 +570,13 @@ TF-8">
           </div>
           <div class="s-row-body">
             <div class="s-row-label" id="s-wifi-info">---</div>
-            <div class="s-row-sub"  id="s-wifi-ip"></div>
+            <div class="s-row-sub"   id="s-wifi-ip"></div>
           </div>
           <div class="s-dot" id="s-wifi-dot"></div>
         </div>
       </div>
     </div>
 
-    <!-- WiFi mode -->
     <div class="s-group">
       <div class="s-group-label">WIFI MODE</div>
       <div class="s-card" style="padding:14px 16px;">
@@ -999,7 +587,6 @@ TF-8">
       </div>
     </div>
 
-    <!-- AP credentials -->
     <div class="s-group" id="ap-settings">
       <div class="s-group-label">ACCESS POINT</div>
       <div class="s-field-card">
@@ -1013,7 +600,6 @@ TF-8">
       <div class="s-note">Other devices connect directly to this hotspot. Leave password blank for an open network.</div>
     </div>
 
-    <!-- STA credentials -->
     <div class="s-group" id="sta-settings" style="display:none;">
       <div class="s-group-label">NETWORK TO JOIN</div>
       <div class="s-field-card">
@@ -1027,7 +613,6 @@ TF-8">
       <div class="s-note">If the device cannot connect it will fall back to Access Point mode automatically.</div>
     </div>
 
-    <!-- Autopilot type -->
     <div class="s-group">
       <div class="s-group-label">AUTOPILOT</div>
       <div class="s-card" style="padding:14px 16px;">
@@ -1042,27 +627,22 @@ TF-8">
       <div class="s-note">Configures NMEA2000 proprietary PGNs for mode commands. Verify with debug logging before use at sea.</div>
     </div>
 
-    <!-- Actions -->
     <button class="s-action-btn primary" onclick="saveSettings()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-        <polyline points="17 21 17 13 7 13 7 21"/>
-        <polyline points="7 3 7 8 15 8"/>
+        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
       </svg>
       Save &amp; Reboot
     </button>
     <button class="s-action-btn danger" onclick="factoryReset()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <polyline points="1 4 1 10 7 10"/>
-        <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/>
       </svg>
       Factory Reset
     </button>
     <div class="s-status" id="s-status"></div>
 
   </div>
-
-
 
 </div><!-- /screens -->
 
@@ -1136,21 +716,15 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (d.settings !== undefined) {
-        applySettingsFromServer(d.settings);
-      } else {
-        updateFromServer(d);
-      }
+      if (d.settings !== undefined) { applySettingsFromServer(d.settings); }
+      else { updateFromServer(d); }
     } catch(err) {}
   };
 }
 
 function wsSend(cmd) { if (ws && ws.readyState === 1) ws.send(cmd); }
 
-// Send NFU:0 on page unload to stop steering immediately
-window.addEventListener('beforeunload', function() {
-  if (nfuRate !== 0) { wsSend('NFU:0'); }
-});
+window.addEventListener('beforeunload', function() { if (nfuRate !== 0) wsSend('NFU:0'); });
 
 function updateFromServer(d) {
   // Autopilot
@@ -1192,7 +766,14 @@ function updateFromServer(d) {
 // ════════════════════════════════
 // SCREEN SWITCHING
 // ════════════════════════════════
+let previousScreen = 'ap';
+
 function showScreen(name) {
+  // Record where we are before navigating to settings so Back works correctly
+  const cur = document.querySelector('.screen.active');
+  if (cur && cur.id !== 'screen-settings') {
+    previousScreen = cur.id.replace('screen-', '');
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -1201,6 +782,8 @@ function showScreen(name) {
   if (name !== 'ap') stopNfu();
   if (name === 'settings') requestSettings();
 }
+
+function goBack() { showScreen(previousScreen); }
 
 // ════════════════════════════════
 // AUTOPILOT
@@ -1280,7 +863,10 @@ function toggleEngage() {
   if (apEngaged) {
     const m = getModeObj(currentMode);
     wsSend('MODE:' + (m ? m.wsKey : 'AUTO'));
-    // Heading display updated when server confirms engage state
+    lockedHdg = 247;
+    document.getElementById('ap-hdg-value').textContent  = lockedHdg + '\u00B0';
+    document.getElementById('actual-hdg').textContent    = (lockedHdg + 1) + '\u00B0';
+    document.getElementById('rudder-val').textContent    = '+2\u00B0';
   } else {
     stopNfu();
     wsSend('MODE:STBY');
@@ -1543,7 +1129,6 @@ function closeAisPopup(e) {
 }
 
 
-// ════════════════════════════════
 
 // ════════════════════════════════
 // SETTINGS
@@ -1552,7 +1137,7 @@ let settingsWifiMode = 'AP';
 let settingsApType   = 'BG';
 
 function requestSettings() {
-  // In test mode: populate with defaults
+  // Demo mode: populate with defaults
   applySettingsFromServer({
     wifiMode:'AP', apSsid:'sensor', apPassword:'12345678',
     staSsid:'', staPassword:'', apType:'BG',
@@ -1562,23 +1147,20 @@ function requestSettings() {
 
 function applySettingsFromServer(s) {
   if (s.wifiMode)    { settingsWifiMode = s.wifiMode; setWifiMode(s.wifiMode, true); }
-  if (s.apSsid)      document.getElementById('s-ap-ssid').value  = s.apSsid;
-  if (s.apPassword)  document.getElementById('s-ap-pass').value  = s.apPassword;
-  if (s.staSsid)     document.getElementById('s-sta-ssid').value = s.staSsid;
-  if (s.staPassword) document.getElementById('s-sta-pass').value = s.staPassword;
+  if (s.apSsid !== undefined)      document.getElementById('s-ap-ssid').value  = s.apSsid;
+  if (s.apPassword !== undefined)  document.getElementById('s-ap-pass').value  = s.apPassword;
+  if (s.staSsid !== undefined)     document.getElementById('s-sta-ssid').value = s.staSsid;
+  if (s.staPassword !== undefined) document.getElementById('s-sta-pass').value = s.staPassword;
   if (s.apType)      { settingsApType = s.apType; setApType(s.apType, true); }
   if (s.wifiConnected !== undefined) {
     const dot  = document.getElementById('s-wifi-dot');
     const info = document.getElementById('s-wifi-info');
     const ip   = document.getElementById('s-wifi-ip');
-    dot.classList.toggle('connected', s.wifiConnected);
-    if (s.wifiMode === 'AP') {
-      info.textContent = 'Access Point: ' + (s.apSsid || 'sensor');
-      ip.textContent   = s.ip || '192.168.4.1';
-    } else {
-      info.textContent = s.wifiConnected ? 'Connected to ' + (s.staSsid || '') : 'Disconnected';
-      ip.textContent   = s.ip || '';
-    }
+    dot.classList.toggle('on', s.wifiConnected);
+    info.textContent = s.wifiMode === 'AP'
+      ? 'Access Point: ' + (s.apSsid || 'sensor')
+      : s.wifiConnected ? 'Connected to ' + (s.staSsid || '') : 'Disconnected';
+    ip.textContent = s.ip || '';
   }
 }
 
@@ -1598,13 +1180,8 @@ function setApType(type, noSend) {
   });
 }
 
-function saveSettings() {
-  showStatus('Save & Reboot disabled in demo mode', true);
-}
-
-function factoryReset() {
-  showStatus('Reset disabled in demo mode', true);
-}
+function saveSettings()  { showStatus('Save & Reboot disabled in demo mode', true); }
+function factoryReset()  { showStatus('Factory Reset disabled in demo mode', true); }
 
 function showStatus(msg, isError) {
   const el = document.getElementById('s-status');
@@ -1613,6 +1190,7 @@ function showStatus(msg, isError) {
   if (!isError) setTimeout(() => { el.textContent = ''; el.className = 's-status'; }, 5000);
 }
 
+// ════════════════════════════════
 // TEST MODE — simulated data
 // ════════════════════════════════
 const OWN_LAT = 50.8100, OWN_LON = 0.5700;

@@ -777,7 +777,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
   <div id="screen-settings" class="screen">
 
     <!-- Back -->
-    <div class="settings-back" onclick="showScreen('ap')">
+    <div class="settings-back" onclick="goBack()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
@@ -1009,7 +1009,14 @@ function updateFromServer(d) {
 // ════════════════════════════════
 // SCREEN SWITCHING
 // ════════════════════════════════
+let previousScreen = 'ap';
+
 function showScreen(name) {
+  // Track where we came from so back button returns correctly
+  const current = document.querySelector('.screen.active');
+  if (current && current.id !== 'screen-settings') {
+    previousScreen = current.id.replace('screen-', '');
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -1017,6 +1024,10 @@ function showScreen(name) {
   if (tabEl) tabEl.classList.add('active');
   if (name !== 'ap') stopNfu();
   if (name === 'settings') requestSettings();
+}
+
+function goBack() {
+  showScreen(previousScreen);
 }
 
 // ════════════════════════════════
