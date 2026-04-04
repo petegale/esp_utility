@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -178,7 +179,6 @@
       margin-bottom: 14px; font-weight: 600;
     }
 
-    /* SOG — full width hero */
     .inst-hero {
       border: 1.5px solid #333; border-radius: 4px;
       padding: 14px 18px; margin-bottom: 10px;
@@ -191,7 +191,6 @@
     .inst-hero-right .inst-lbl  { font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 4px; }
     .inst-hero-right .inst-sub  { font-size: 28px; font-weight: 800; color: #aaa; line-height: 1; }
 
-    /* 2-col grid for rest */
     .inst-grid {
       display: grid; grid-template-columns: 1fr 1fr;
       gap: 10px; margin-bottom: 10px;
@@ -204,14 +203,12 @@
     .inst-big  { font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
     .inst-unit { font-size: 11px; color: #555; letter-spacing: 1px; margin-top: 3px; }
 
-    /* depth — full width bottom */
     .inst-row {
       border: 1.5px solid #333; border-radius: 4px;
       padding: 14px 18px; display: flex;
       align-items: flex-end; justify-content: space-between;
     }
 
-    /* Wind arrow */
     .awa-arrow-wrap { display: flex; justify-content: flex-end; padding-bottom: 2px; }
     #awa-svg { width: 40px; height: 40px; }
 
@@ -254,7 +251,6 @@
     .ais-brg  { font-size: 10px; color: #555; text-align: right; margin-top: 1px; }
     #ais-no-data { color: #444; text-align: center; padding: 20px; font-size: 13px; }
 
-    /* AIS target popup */
     #ais-popup {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.85); z-index: 200;
@@ -283,9 +279,97 @@
       font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px;
     }
     #ais-popup-close:active { background: #2a2a2a; }
+
+    /* ════════════════════════════════
+       SETTINGS SCREEN
+    ════════════════════════════════ */
+    #screen-settings { overflow-y: auto; padding-bottom: 24px; }
+
+    .settings-title {
+      font-size: 11px; color: #555; letter-spacing: 3px;
+      margin-bottom: 16px; font-weight: 600;
+    }
+
+    .settings-section {
+      border: 1.5px solid #333; border-radius: 4px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .settings-section-label {
+      font-size: 10px; color: #555; letter-spacing: 3px;
+      margin-bottom: 12px; font-weight: 600;
+    }
+
+    .s-field { margin-bottom: 10px; }
+    .s-field:last-child { margin-bottom: 0; }
+    .s-label {
+      font-size: 11px; color: #888; letter-spacing: 1px;
+      margin-bottom: 4px; font-weight: 600;
+    }
+    .s-input {
+      width: 100%; background: #0d0d0d; border: 1.5px solid #333;
+      border-radius: 4px; padding: 10px 12px; color: #fff;
+      font-size: 14px; font-family: -apple-system, sans-serif;
+      outline: none; user-select: text; -webkit-user-select: text;
+    }
+    .s-input:focus { border-color: #555; }
+    .s-input::placeholder { color: #333; }
+
+    .s-radio-group {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .s-radio {
+      background: #0d0d0d; border: 1.5px solid #333;
+      border-radius: 4px; padding: 8px 14px;
+      font-size: 12px; font-weight: 700; color: #555;
+      cursor: pointer; letter-spacing: 0.5px;
+      transition: all 0.15s;
+    }
+    .s-radio.active {
+      border-color: #00cc55; color: #00cc55; background: #051a0a;
+    }
+    .s-radio:active { opacity: 0.8; }
+
+    .s-btn {
+      width: 100%; background: #0d0d0d; border: 1.5px solid #006622;
+      border-radius: 4px; padding: 13px; margin-top: 10px;
+      font-size: 14px; font-weight: 700; color: #00cc55;
+      cursor: pointer; letter-spacing: 1px;
+      transition: background 0.15s;
+    }
+    .s-btn:active { background: #051a0a; }
+    .s-btn.danger { border-color: #662200; color: #cc4400; }
+    .s-btn.danger:active { background: #1a0d00; }
+
+    .s-status {
+      font-size: 11px; color: #555; text-align: center;
+      margin-top: 8px; min-height: 16px;
+      transition: color 0.2s;
+    }
+    .s-status.ok { color: #00cc55; }
+    .s-status.err { color: #cc4400; }
+
+    .s-note {
+      font-size: 10px; color: #444; margin-top: 6px;
+      line-height: 1.4; letter-spacing: 0.3px;
+    }
+
+    .s-wifi-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 0; margin-bottom: 6px;
+    }
+    .s-wifi-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #444; flex-shrink: 0;
+    }
+    .s-wifi-dot.connected { background: #00cc55; }
+    .s-wifi-info { font-size: 12px; color: #888; }
+    .s-wifi-ip { font-size: 11px; color: #555; }
   </style>
 </head>
 <body>
+<div style="background:#1a0d00;border-bottom:1px solid #ff8800;color:#ff8800;font-size:11px;font-weight:600;text-align:center;padding:5px;letter-spacing:2px;flex-shrink:0;">
+  TEST MODE &mdash; SIMULATED DATA
+</div>
 
 <div id="screens">
 
@@ -294,7 +378,7 @@
 
     <div class="ap-topbar">
       <div class="ap-label">AUTOPILOT</div>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
+      <svg onclick="showScreen('settings')" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
@@ -460,13 +544,9 @@
         <text x="173" y="90"  font-size="9" fill="#333" id="ring-label-3"></text>
         <text x="173" y="132" font-size="9" fill="#333" id="ring-label-2"></text>
         <text x="173" y="174" font-size="9" fill="#333" id="ring-label-1"></text>
-        <!-- Heading-up indicator: shows current vessel heading at top -->
         <text id="hdg-up-label" x="170" y="13" text-anchor="middle" font-size="11" fill="#888" font-weight="bold">---&#xb0;</text>
-        <!-- North tick: short line that rotates with the display to show where N is -->
         <line id="north-tick" x1="170" y1="0" x2="170" y2="10" stroke="#444" stroke-width="2"/>
-        <!-- Own vessel triangle — always points up (forward) -->
         <polygon points="170,158 175,178 170,174 165,178" fill="#00cc55"/>
-        <!-- All targets rendered here, rotated to heading-up by JS -->
         <g id="ais-targets-group"></g>
       </svg>
     </div>
@@ -474,6 +554,78 @@
     <div id="ais-list">
       <div id="ais-no-data">No AIS targets</div>
     </div>
+  </div>
+
+  <!-- ════ SETTINGS ════ -->
+  <div id="screen-settings" class="screen">
+    <div class="settings-title">SETTINGS</div>
+
+    <!-- WiFi status -->
+    <div class="settings-section">
+      <div class="settings-section-label">NETWORK STATUS</div>
+      <div class="s-wifi-status">
+        <div class="s-wifi-dot" id="s-wifi-dot"></div>
+        <div>
+          <div class="s-wifi-info" id="s-wifi-info">---</div>
+          <div class="s-wifi-ip" id="s-wifi-ip"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WiFi mode -->
+    <div class="settings-section">
+      <div class="settings-section-label">WIFI MODE</div>
+      <div class="s-radio-group" id="wifi-mode-group">
+        <div class="s-radio active" data-val="AP" onclick="setWifiMode('AP')">ACCESS POINT</div>
+        <div class="s-radio" data-val="STA" onclick="setWifiMode('STA')">JOIN NETWORK</div>
+      </div>
+    </div>
+
+    <!-- AP settings -->
+    <div class="settings-section" id="ap-settings">
+      <div class="settings-section-label">ACCESS POINT</div>
+      <div class="s-field">
+        <div class="s-label">NETWORK NAME</div>
+        <input class="s-input" id="s-ap-ssid" type="text" placeholder="sensor" maxlength="32" autocomplete="off">
+      </div>
+      <div class="s-field">
+        <div class="s-label">PASSWORD</div>
+        <input class="s-input" id="s-ap-pass" type="text" placeholder="min 8 characters" maxlength="63" autocomplete="off">
+      </div>
+      <div class="s-note">Devices connect directly to this hotspot. Password must be at least 8 characters.</div>
+    </div>
+
+    <!-- STA settings -->
+    <div class="settings-section" id="sta-settings" style="display:none;">
+      <div class="settings-section-label">JOIN EXISTING NETWORK</div>
+      <div class="s-field">
+        <div class="s-label">NETWORK NAME (SSID)</div>
+        <input class="s-input" id="s-sta-ssid" type="text" placeholder="your-wifi-name" maxlength="32" autocomplete="off">
+      </div>
+      <div class="s-field">
+        <div class="s-label">PASSWORD</div>
+        <input class="s-input" id="s-sta-pass" type="text" placeholder="wifi password" maxlength="63" autocomplete="off">
+      </div>
+      <div class="s-note">The device will join this network. If it cannot connect, it will fall back to Access Point mode.</div>
+    </div>
+
+    <!-- Autopilot type -->
+    <div class="settings-section">
+      <div class="settings-section-label">AUTOPILOT TYPE</div>
+      <div class="s-radio-group" id="ap-type-group">
+        <div class="s-radio active" data-val="BG" onclick="setApType('BG')">B&amp;G / NAVICO</div>
+        <div class="s-radio" data-val="SIMRAD" onclick="setApType('SIMRAD')">SIMRAD</div>
+        <div class="s-radio" data-val="GARMIN" onclick="setApType('GARMIN')">GARMIN</div>
+        <div class="s-radio" data-val="RAYMARINE" onclick="setApType('RAYMARINE')">RAYMARINE</div>
+        <div class="s-radio" data-val="GENERIC" onclick="setApType('GENERIC')">GENERIC</div>
+      </div>
+      <div class="s-note">Select your autopilot brand. This configures the correct NMEA2000 proprietary PGNs for mode commands and heading adjustments. Verify with debug logging before use.</div>
+    </div>
+
+    <!-- Save / Reboot -->
+    <button class="s-btn" onclick="saveSettings()">SAVE &amp; REBOOT</button>
+    <button class="s-btn danger" onclick="factoryReset()">FACTORY RESET</button>
+    <div class="s-status" id="s-status"></div>
   </div>
 
 </div><!-- /screens -->
@@ -512,6 +664,13 @@
     </svg>
     AIS
   </div>
+  <div class="tab" onclick="showScreen('settings')" id="tab-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+    SETUP
+  </div>
 </div>
 
 <!-- Mode popup -->
@@ -548,12 +707,21 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      updateFromServer(d);
+      if (d.settings !== undefined) {
+        applySettingsFromServer(d.settings);
+      } else {
+        updateFromServer(d);
+      }
     } catch(err) {}
   };
 }
 
 function wsSend(cmd) { if (ws && ws.readyState === 1) ws.send(cmd); }
+
+// FIX #4: Send NFU:0 on page unload to stop steering immediately
+window.addEventListener('beforeunload', function() {
+  if (nfuRate !== 0) { wsSend('NFU:0'); }
+});
 
 function updateFromServer(d) {
   // Autopilot
@@ -572,6 +740,7 @@ function updateFromServer(d) {
   if (d.vessel !== undefined && d.vessel >= 0) {
     vesselHeading = d.vessel;
   }
+  // FIX #3: Use server-provided heading, not hardcoded value
   if (d.heading >= 0) {
     document.getElementById('ap-hdg-value').textContent  = d.heading.toFixed(1) + '\u00B0';
     document.getElementById('actual-hdg').textContent    = d.vessel >= 0 ? d.vessel.toFixed(1) + '\u00B0' : '---\u00B0';
@@ -587,8 +756,8 @@ function updateFromServer(d) {
     document.getElementById('inst-awa').textContent = disp.toFixed(0) + '\u00B0 ' + side;
     document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
   }
-  // AIS
-  if (d.ownLat !== undefined) { ownLat = d.ownLat; ownLon = d.ownLon; }
+  // FIX #6: Check for NaN/null own position before setting
+  if (d.ownLat !== undefined && d.ownLat !== null && isFinite(d.ownLat)) { ownLat = d.ownLat; ownLon = d.ownLon; }
   if (d.targets !== undefined) { aisTargets = d.targets; updateAisDisplay(); }
 }
 
@@ -599,8 +768,10 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
+  const tabEl = document.getElementById('tab-' + name);
+  if (tabEl) tabEl.classList.add('active');
   if (name !== 'ap') stopNfu();
+  if (name === 'settings') requestSettings();
 }
 
 // ════════════════════════════════
@@ -616,7 +787,6 @@ const AP_MODES = [
 
 let apEngaged    = false;
 let currentMode  = 'HEADING';
-let lockedHdg    = 0;
 let nfuRate      = 0;
 let nfuInterval  = null;
 let wheelAngle   = 0;
@@ -639,7 +809,6 @@ function updateControls() {
   const wheel = document.getElementById('wheel-area');
   const isDirect = currentMode === 'DIRECT';
   if (isDirect) {
-    // Show wheel whenever DIRECT is selected, engaged or not
     adj.classList.add('hidden');
     wheel.classList.add('visible');
   } else {
@@ -681,10 +850,7 @@ function toggleEngage() {
   if (apEngaged) {
     const m = getModeObj(currentMode);
     wsSend('MODE:' + (m ? m.wsKey : 'AUTO'));
-    lockedHdg = 247;
-    document.getElementById('ap-hdg-value').textContent  = lockedHdg + '\u00B0';
-    document.getElementById('actual-hdg').textContent    = (lockedHdg + 1) + '\u00B0';
-    document.getElementById('rudder-val').textContent    = '+2\u00B0';
+    // FIX #3: Don't hardcode heading — let server state update the display
   } else {
     stopNfu();
     wsSend('MODE:STBY');
@@ -698,8 +864,6 @@ function apAdjust(deg) {
   if (deg === 1)   wsSend('STBD1');
   if (deg === -10) wsSend('PORT10');
   if (deg === 10)  wsSend('STBD10');
-  lockedHdg = (lockedHdg + deg + 360) % 360;
-  document.getElementById('ap-hdg-value').textContent = lockedHdg + '\u00B0';
 }
 
 // ── Mode popup ──────────────────────────────────
@@ -797,7 +961,7 @@ const RANGE_OPTIONS = [0.5, 1, 2, 5, 10, 20];
 let rangeIdx      = 3;
 let ownLat        = null, ownLon = null;
 let aisTargets    = [];
-let vesselHeading = null; // degrees, used for heading-up radar rotation
+let vesselHeading = null;
 
 function setRange(idx) {
   rangeIdx = idx;
@@ -815,14 +979,12 @@ function updateRingLabels() {
 }
 
 function latLonToRadar(lat, lon) {
-  if (!ownLat) return null;
+  if (!ownLat || !isFinite(ownLat)) return null; // FIX #6
   const dLat = (lat - ownLat) * 60;
   const dLon = (lon - ownLon) * 60 * Math.cos(ownLat * Math.PI / 180);
   const scale = 170 / RANGE_OPTIONS[rangeIdx];
-  // North-up x,y
   const nx = dLon * scale;
   const ny = -dLat * scale;
-  // Rotate to heading-up: subtract vessel heading
   const hdgRad = (vesselHeading || 0) * Math.PI / 180;
   const rx =  nx * Math.cos(-hdgRad) - ny * Math.sin(-hdgRad);
   const ry =  nx * Math.sin(-hdgRad) + ny * Math.cos(-hdgRad);
@@ -843,10 +1005,8 @@ function bearingDistance(lat1, lon1, lat2, lon2) {
 
 function updateAisDisplay() {
   updateRingLabels();
-  // Update heading-up indicator
   const hdgLbl = document.getElementById('hdg-up-label');
-  if (hdgLbl) hdgLbl.textContent = vesselHeading !== null ? Math.round(vesselHeading) + '°' : '---°';
-  // Rotate north tick to show where N is relative to heading-up display
+  if (hdgLbl) hdgLbl.textContent = vesselHeading !== null ? Math.round(vesselHeading) + '\u00B0' : '---\u00B0';
   const northTick = document.getElementById('north-tick');
   if (northTick) {
     const ntAngle = -(vesselHeading || 0);
@@ -869,14 +1029,14 @@ function updateAisDisplay() {
 
   aisTargets.forEach(t => {
     const pos = latLonToRadar(t.lat, t.lon);
-    const bd  = ownLat ? bearingDistance(ownLat, ownLon, t.lat, t.lon) : null;
+    const bd  = (ownLat && isFinite(ownLat)) ? bearingDistance(ownLat, ownLon, t.lat, t.lon) : null;
     const inRange = pos && pos.x >= 0 && pos.x <= 340 && pos.y >= 0 && pos.y <= 340;
 
     if (inRange && pos) {
-      const cogRad = ((t.cogDeg || t.cog || 0) - (vesselHeading || 0)) * Math.PI / 180;
+      const cogRad = ((t.cog || 0) - (vesselHeading || 0)) * Math.PI / 180;
       const s = 8;
-      if ((t.sogKn || t.sog || 0) > 0.5) {
-        const vl = ((t.sogKn || t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
+      if ((t.sog || 0) > 0.5) {
+        const vl = ((t.sog || 0) / 60 * 10) * (170 / RANGE_OPTIONS[rangeIdx]);
         const line = document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1', pos.x); line.setAttribute('y1', pos.y);
         line.setAttribute('x2', pos.x + Math.sin(cogRad)*vl);
@@ -912,8 +1072,8 @@ function updateAisDisplay() {
     const row = document.createElement('div');
     row.className = 'ais-row';
     const name = (t.name && t.name.trim()) ? t.name.trim() : '---';
-    const sog  = (t.sogKn || t.sog || 0).toFixed(1);
-    const cog  = (t.cogDeg || t.cog || 0).toFixed(0);
+    const sog  = (t.sog || 0).toFixed(1);
+    const cog  = (t.cog || 0).toFixed(0);
     row.innerHTML =
       '<div><div class="ais-name">' + name + '</div><div class="ais-sub">' + sog + ' kn &middot; ' + cog + '\u00B0</div></div>' +
       '<div><div class="ais-dist">' + (bd ? bd.dist.toFixed(1) + ' nm' : '---') + '</div>' +
@@ -928,8 +1088,8 @@ function openAisPopup(t, bd) {
   document.getElementById('ais-popup-name').textContent = name;
   const rows = [
     ['MMSI',     t.mmsi || '---'],
-    ['SOG',      ((t.sogKn || t.sog || 0).toFixed(1)) + ' kn'],
-    ['COG',      ((t.cogDeg || t.cog || 0).toFixed(0)) + '\u00B0'],
+    ['SOG',      ((t.sog || 0).toFixed(1)) + ' kn'],
+    ['COG',      ((t.cog || 0).toFixed(0)) + '\u00B0'],
     ['Bearing',  bd ? bd.brg.toFixed(1) + '\u00B0' : '---'],
     ['Distance', bd ? bd.dist.toFixed(2) + ' nm' : '---'],
     ['Position', (t.lat||0).toFixed(4) + '\u00B0N \u00A0 ' + (t.lon||0).toFixed(4) + '\u00B0E'],
@@ -946,8 +1106,103 @@ function closeAisPopup(e) {
   }
 }
 
-
 // ════════════════════════════════
+// SETTINGS
+// ════════════════════════════════
+let settingsWifiMode = 'AP';
+let settingsApType   = 'BG';
+
+function requestSettings() {
+  // Populate with sim defaults in test mode
+  applySettingsFromServer({wifiMode:'AP',apSsid:'sensor',apPassword:'12345678',staSsid:'',staPassword:'',apType:'BG',wifiConnected:true,ip:'192.168.4.1'});
+}
+
+function applySettingsFromServer(s) {
+  if (s.wifiMode) {
+    settingsWifiMode = s.wifiMode;
+    setWifiMode(s.wifiMode, true);
+  }
+  if (s.apSsid)     document.getElementById('s-ap-ssid').value = s.apSsid;
+  if (s.apPassword)  document.getElementById('s-ap-pass').value = s.apPassword;
+  if (s.staSsid)     document.getElementById('s-sta-ssid').value = s.staSsid;
+  if (s.staPassword) document.getElementById('s-sta-pass').value = s.staPassword;
+  if (s.apType) {
+    settingsApType = s.apType;
+    setApType(s.apType, true);
+  }
+  // Update wifi status display
+  if (s.wifiConnected !== undefined) {
+    const dot = document.getElementById('s-wifi-dot');
+    const info = document.getElementById('s-wifi-info');
+    const ip = document.getElementById('s-wifi-ip');
+    dot.classList.toggle('connected', s.wifiConnected);
+    if (s.wifiMode === 'AP') {
+      info.textContent = 'Access Point: ' + (s.apSsid || 'sensor');
+      ip.textContent = s.ip || '192.168.4.1';
+    } else {
+      info.textContent = s.wifiConnected ? ('Connected to ' + (s.staSsid || '')) : 'Disconnected';
+      ip.textContent = s.ip || '';
+    }
+  }
+}
+
+function setWifiMode(mode, noSend) {
+  settingsWifiMode = mode;
+  document.querySelectorAll('#wifi-mode-group .s-radio').forEach(el => {
+    el.classList.toggle('active', el.dataset.val === mode);
+  });
+  document.getElementById('ap-settings').style.display  = mode === 'AP'  ? 'block' : 'none';
+  document.getElementById('sta-settings').style.display = mode === 'STA' ? 'block' : 'none';
+}
+
+function setApType(type, noSend) {
+  settingsApType = type;
+  document.querySelectorAll('#ap-type-group .s-radio').forEach(el => {
+    el.classList.toggle('active', el.dataset.val === type);
+  });
+}
+
+function saveSettings() {
+  showStatus('Save disabled in demo mode', true); return;
+  if(false){
+  const payload = {
+    wifiMode:    settingsWifiMode,
+    apSsid:      document.getElementById('s-ap-ssid').value.trim(),
+    apPassword:  document.getElementById('s-ap-pass').value,
+    staSsid:     document.getElementById('s-sta-ssid').value.trim(),
+    staPassword: document.getElementById('s-sta-pass').value,
+    apType:      settingsApType
+  };
+
+  // Validate
+  if (settingsWifiMode === 'AP') {
+    if (!payload.apSsid) { showStatus('Network name required', true); return; }
+    if (payload.apPassword.length > 0 && payload.apPassword.length < 8) {
+      showStatus('Password must be at least 8 characters', true); return;
+    }
+  } else {
+    if (!payload.staSsid) { showStatus('SSID required', true); return; }
+  }
+
+  wsSend('SETTINGS:' + JSON.stringify(payload));
+  showStatus('Saving... device will reboot', false);
+}
+
+function factoryReset() {
+  showStatus('Reset disabled in demo mode', true); return;
+  if (false && confirm('Reset all settings to defaults? The device will reboot.')) {
+    wsSend('SETTINGS:RESET');
+    showStatus('Resetting... device will reboot', false);
+  }
+}
+
+function showStatus(msg, isError) {
+  const el = document.getElementById('s-status');
+  el.textContent = msg;
+  el.className = 's-status ' + (isError ? 'err' : 'ok');
+  if (!isError) setTimeout(() => { el.textContent = ''; el.className = 's-status'; }, 5000);
+}
+
 // TEST MODE — simulated data
 // ════════════════════════════════
 const OWN_LAT = 50.8100, OWN_LON = 0.5700;
@@ -1005,3 +1260,4 @@ connect();
 </script>
 </body>
 </html>
+
