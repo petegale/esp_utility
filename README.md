@@ -6,7 +6,7 @@ An M5Stack Atom-based ESP32 project that:
 - Receives sensor data from wireless sensors via UDP and transmits it onto an **NMEA2000** network
 - Acts as a **web-based autopilot controller** for B&G / Navico autopilot systems (tested with AP48 + Zeus)
 - Displays **instrument data** (depth, SOG, apparent wind) read from the NMEA2000 bus
-- Shows **AIS targets** on a north-up radar display
+- Shows **AIS targets** on a heading-up radar display
 
 Access is via a mobile-optimised web UI served directly from the ESP32 — no app required.
 
@@ -18,8 +18,6 @@ Access is via a mobile-optimised web UI served directly from the ESP32 — no ap
 |---|---|
 | **M5Stack Atom** | ESP32-based, built-in RGB LED, USB-C |
 | **SN65HVD230 CAN transceiver** | 3.3V native — works directly with ESP32. Isolated version recommended for marine use |
-| **NMEA2000 Micro-C T-piece** | Standard backbone connector |
-| **NMEA2000 drop cable** (1m, bare end) | Connects T-piece to screw terminals on transceiver board |
 
 ### Wiring
 
