@@ -2,6 +2,8 @@
 
 > **Note:** This project is also an experiment in AI-assisted development.
 
+**[Live UI demo](https://petegale.github.io/esp_utility/)** — interactive prototype with simulated data, works on mobile.
+
 An M5Stack Atom-based ESP32 project that:
 - Receives sensor data from wireless sensors via UDP and transmits it onto an **NMEA2000** network
 - Acts as a **web-based autopilot controller** for B&G / Navico autopilot systems (tested with AP48 + Zeus)
