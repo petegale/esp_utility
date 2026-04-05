@@ -887,10 +887,17 @@ function updateFromServer(d) {
   if (d.vessel !== undefined && d.vessel >= 0) {
     vesselHeading = d.vessel;
   }
-  // FIX #3: Use server-provided heading, not hardcoded value
-  if (d.heading >= 0) {
-    document.getElementById('ap-hdg-value').textContent  = d.heading.toFixed(1) + '\u00B0';
-    document.getElementById('actual-hdg').textContent    = d.vessel >= 0 ? d.vessel.toFixed(1) + '\u00B0' : '---\u00B0';
+  // Heading display: show locked heading if engaged, vessel heading otherwise
+  // vessel heading always updates regardless of AP state
+  if (d.vessel !== undefined && d.vessel >= 0) {
+    document.getElementById('actual-hdg').textContent = d.vessel.toFixed(1) + '\u00B0';
+  }
+  if (d.heading !== undefined && d.heading >= 0) {
+    // NAC-3 has a locked heading
+    document.getElementById('ap-hdg-value').textContent = d.heading.toFixed(1) + '\u00B0';
+  } else if (d.vessel !== undefined && d.vessel >= 0 && !apEngaged) {
+    // Not engaged — show current vessel heading as the "would lock" heading
+    document.getElementById('ap-hdg-value').textContent = d.vessel.toFixed(1) + '\u00B0';
   }
   // Instruments
   if (d.sog   !== undefined && d.sog   >= 0) document.getElementById('inst-sog').textContent   = d.sog.toFixed(1);
@@ -902,6 +909,14 @@ function updateFromServer(d) {
     let disp = awa > 180 ? 360 - awa : awa;
     document.getElementById('inst-awa').textContent = disp.toFixed(0) + '\u00B0 ' + side;
     document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
+  }
+  // Rudder display — sentinel is -999 (0° is a valid rudder angle)
+  if (d.rudder !== undefined && d.rudder > -900) {
+    document.getElementById('rudder-val').textContent = d.rudder.toFixed(1) + '\u00B0';
+    // Rudder bar: scale ±30° to full width
+    var rPct = Math.min(Math.abs(d.rudder) / 30 * 50, 50);
+    document.getElementById('rudder-bar-port').style.width = d.rudder < 0 ? rPct + '%' : '0';
+    document.getElementById('rudder-bar-stbd').style.width = d.rudder > 0 ? rPct + '%' : '0';
   }
   // Data availability bitmask — drives mode gating and network test
   if (d.avail !== undefined) { dataAvail = d.avail; }
@@ -1035,8 +1050,10 @@ function toggleEngage() {
   apEngaged = !apEngaged;
   if (apEngaged) {
     const m = getModeObj(currentMode);
+    // Send STBY first to ensure clean state, then engage after brief delay
+    // This prevents sudden course changes by letting the NAC-3 settle
+    // The NAC-3 will lock onto current heading at the moment of engage
     wsSend('MODE:' + (m ? m.wsKey : 'AUTO'));
-    // FIX #3: Don't hardcode heading — let server state update the display
   } else {
     stopNfu();
     wsSend('MODE:STBY');

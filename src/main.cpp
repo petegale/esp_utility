@@ -66,17 +66,17 @@ ApConfig apCfg;
 
 void applyApConfig() {
   if (strcmp(apType, "BG") == 0 || strcmp(apType, "SIMRAD") == 0) {
-    // B&G / Simrad / Navico
-    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+    // B&G / Simrad / Navico — confirmed from bus capture Apr 2026
+    // 65341 = command PGN (send mode commands here)
+    // 65305 = status PGN (read engagement state from here)
+    // modeStby=0x02 used in 65341 command. Engaged status read from 65305 byte 4.
+    apCfg = {65341, 65345, 65305, 204, 0x02, 0x00, 0x03, 0x04, 0x05, 0x06};
   } else if (strcmp(apType, "GARMIN") == 0) {
-    // Garmin — uses same proprietary PGNs but different source conventions
-    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+    apCfg = {65341, 65345, 65305, 204, 0x02, 0x00, 0x03, 0x04, 0x05, 0x06};
   } else if (strcmp(apType, "RAYMARINE") == 0) {
-    // Raymarine — placeholder, same structure pending field verification
-    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+    apCfg = {65341, 65345, 65305, 204, 0x02, 0x00, 0x03, 0x04, 0x05, 0x06};
   } else {
-    // GENERIC fallback
-    apCfg = {65341, 65345, 65288, 204, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
+    apCfg = {65341, 65345, 65305, 204, 0x02, 0x00, 0x03, 0x04, 0x05, 0x06};
   }
 }
 
@@ -196,18 +196,55 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
   switch (N2kMsg.PGN) {
 
-    case 65288: {
-      // Autopilot mode — Navico/B&G (also used as generic status PGN)
-      uint8_t mode = N2kMsg.Data[1];
-      const char* modes[] = {"STBY","AUTO","NFU","NODRIFT","WIND","NAV"};
-      apMode = (mode < 6) ? modes[mode] : "----";
-      lastSeenAP = millis(); stateChanged = true;
+    case 65305: {
+      // AP48 actual status PGN — confirmed from bus capture comparison
+      // Byte 0-1: 0x41,0x9F = Navico manufacturer code
+      // Byte 2:   0x64 (always)
+      // Byte 3:   sub-command / instance (varies: 0x02 or 0x0A)
+      // Byte 4:   STATUS BYTE — 0x02/0x08 = STANDBY, 0x10 = ENGAGED
+      // Bytes 5-7: 0x00,0x00,0x00
+      if (N2kMsg.DataLen < 5) break;
+      Serial.printf("[AP STATUS 65305] src=%d bytes:", N2kMsg.Source);
+      for (int i = 0; i < N2kMsg.DataLen && i < 8; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
+      uint8_t statusByte = N2kMsg.Data[4];
+      Serial.printf(" → status=0x%02X\n", statusByte);
+      // 0x10 = engaged (AUTO heading hold confirmed from capture)
+      // 0x02/0x08 = standby — other engaged modes TBC
+      if (statusByte == 0x10) {
+        apMode = "AUTO";
+      } else if (statusByte == 0x02 || statusByte == 0x08) {
+        apMode = "STBY";
+        lockedHeading = -1; // clear locked heading so UI reverts to vessel heading
+      }
+      lastSeenAP = millis();
+      stateChanged = true;
+      break;
+    }
+
+    case 65341: {
+      // AP48 keepalive/command PGN — used to send mode commands TO the AP
+      // Also broadcast by AP48 as heartbeat (byte 4 = 0x02 always in our captures)
+      // Log if status byte changes so we can learn the command encoding
+      if (N2kMsg.DataLen < 5) break;
+      uint8_t b4 = N2kMsg.Data[4];
+      if (b4 != 0x02) { // only log if unexpected — 0x02 is normal heartbeat
+        Serial.printf("[65341 UNEXPECTED] src=%d byte4=0x%02X bytes:", N2kMsg.Source, b4);
+        for (int i = 0; i < N2kMsg.DataLen && i < 8; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
+        Serial.println();
+      }
       break;
     }
 
     case 65359: {
-      // Autopilot locked heading
-      uint16_t raw = (uint16_t)N2kMsg.Data[2] | ((uint16_t)N2kMsg.Data[3] << 8);
+      // Navico locked/commanded heading — only trust the NAC-3 (src=4)
+      // Our own device (src=204) also broadcasts 65359 with vessel heading,
+      // which would continuously overwrite lockedHeading if not filtered.
+      if (N2kMsg.Source != 4) break;
+      // Format: 3B,9F,FF,FF,FF,[hdg_lo],[hdg_hi],FF
+      // Heading is at bytes[5-6] (0.0001 rad LE), NOT bytes[2-3]
+      if (N2kMsg.DataLen < 7) break;
+      uint16_t raw = (uint16_t)N2kMsg.Data[5] | ((uint16_t)N2kMsg.Data[6] << 8);
+      if (raw == 0xFFFF) break; // N/A
       lockedHeading = RadToDeg(raw * 0.0001);
       stateChanged = true;
       break;
@@ -393,6 +430,37 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       }
       break;
     }
+
+    case 130850: {
+      // Navico proprietary command/status PGN — log ALL occurrences for analysis
+      Serial.printf("[130850] src=%d len=%d:", N2kMsg.Source, N2kMsg.DataLen);
+      for (int i = 0; i < N2kMsg.DataLen && i < 12; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
+      Serial.println();
+      break;
+    }
+
+    case 130851: {
+      // NAC-3 command echo PGN — log ALL occurrences
+      Serial.printf("[130851] src=%d len=%d:", N2kMsg.Source, N2kMsg.DataLen);
+      for (int i = 0; i < N2kMsg.DataLen && i < 12; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
+      Serial.println();
+      break;
+    }
+
+    case 127237: {
+      // Heading/Track Control — log when from autopilot sources to track locked heading
+      if (N2kMsg.Source == 4 || N2kMsg.Source == 2 || N2kMsg.Source == 3) {
+        Serial.printf("[127237] src=%d:", N2kMsg.Source);
+        for (int i = 0; i < N2kMsg.DataLen && i < 21; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
+        Serial.println();
+      }
+      break;
+    }
+
+    default: {
+      // Raw logging disabled — was used to find heading adjust PGN (now found)
+      break;
+    }
   }
 
   if (stateChanged) BroadcastState();
@@ -516,47 +584,69 @@ void BroadcastState() {
 
 // ─── Mode command ────────────────────────────────────────────────────────────
 void SendModeCommand(const char* mode) {
-  uint8_t modeByte = 0xFF;
-  if      (strcmp(mode,"STBY")    == 0) modeByte = apCfg.modeStby;
-  else if (strcmp(mode,"AUTO")    == 0) modeByte = apCfg.modeAuto;
-  else if (strcmp(mode,"NFU")     == 0) modeByte = apCfg.modeNfu;
-  else if (strcmp(mode,"NODRIFT") == 0) modeByte = apCfg.modeNoDrift;
-  else if (strcmp(mode,"WIND")    == 0) modeByte = apCfg.modeWind;
-  else if (strcmp(mode,"NAV")     == 0) modeByte = apCfg.modeNav;
-  if (modeByte == 0xFF) return;
+  // Confirmed from bus captures Apr 2026:
+  // NAC-3 commanded via PGN 130850 (Navico proprietary)
+  // Byte 6: 0x09=engage heading hold, 0x06=disengage (standby)
+  // The NAC-3 locks onto current vessel heading at moment of engage.
+  bool engage = (strcmp(mode,"STBY") != 0);
+  uint8_t subB = engage ? 0x09 : 0x06;
 
   tN2kMsg N2kMsg;
-  N2kMsg.Init(6, apCfg.modePgn, apCfg.srcAddr, 255);
-  N2kMsg.AddByte(0x01); N2kMsg.AddByte(modeByte); N2kMsg.AddByte(0x00);
+  N2kMsg.Init(6, 130850, apCfg.srcAddr, 255);
+  N2kMsg.AddByte(0x41); N2kMsg.AddByte(0x9F);
+  N2kMsg.AddByte(0x04);
   N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
-  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
+  N2kMsg.AddByte(0x0A);
+  N2kMsg.AddByte(subB);
+  N2kMsg.AddByte(0x00);
+  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
+  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
+
+  Serial.printf("[SEND MODE] mode=%s → PGN 130850 byte6=0x%02X\n", mode, subB);
   NMEA2000.SendMsg(N2kMsg);
 }
 
 // ─── NFU / Direct steering ───────────────────────────────────────────────────
 void SendNfuCommand(int rate) {
+  // NFU/DIRECT steering — format unverified for NAC-3, needs bus capture
+  // Using 130850 with sub-byte approach as placeholder
   if (rate == 0) return;
-  uint8_t  dir    = (rate > 0) ? 1 : 0;
-  uint16_t amount = (uint16_t)(abs(rate) * 0.1745);
-  tN2kMsg N2kMsg;
-  N2kMsg.Init(6, apCfg.steerPgn, apCfg.srcAddr, 255);
-  N2kMsg.AddByte(0x01); N2kMsg.AddByte(dir);
-  N2kMsg.AddByte(amount & 0xFF); N2kMsg.AddByte((amount >> 8) & 0xFF);
-  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
-  NMEA2000.SendMsg(N2kMsg);
+  // TODO: capture Zeus sending heading adjust to determine correct format
+  Serial.printf("[NFU] rate=%d — command format unverified for NAC-3\n", rate);
 }
 
 // ─── Heading adjust ──────────────────────────────────────────────────────────
-// FIX #2: Guard against uint16_t overflow for large angles
+// Confirmed from 130851 NAC-3 echo and on-water testing Apr 2026:
+// PGN 130850, byte6=0x1A
+// Byte 8:    0x01 = ADD to heading (STBD), 0x02 = SUBTRACT from heading (PORT)
+// Bytes 9-10: adjustment amount in 0.0001 rad units (uint16 LE)
+//             1° = 175 units, 10° = 1745 units
+// NOTE: DO NOT use 0x00 or other values for byte 8 — causes NAC-3 to set
+// absolute heading rather than relative adjust.
 void SendHeadingAdjust(int degrees) {
-  int clamped = constrain(abs(degrees), 0, 30); // safe range for uint16_t
-  uint16_t amount = (uint16_t)(clamped * 10000.0 * M_PI / 180.0);
-  uint8_t  dir    = (degrees > 0) ? 1 : 0;
+  if (degrees == 0) return;
+
+  bool add = (degrees > 0); // positive = STBD = add to heading
+  int  deg = abs(degrees);
+
+  // Convert degrees to 0.0001 rad units
+  uint16_t amt = (uint16_t)(deg * (M_PI / 180.0) / 0.0001);
+
   tN2kMsg N2kMsg;
-  N2kMsg.Init(6, apCfg.steerPgn, apCfg.srcAddr, 255);
-  N2kMsg.AddByte(0x01); N2kMsg.AddByte(dir);
-  N2kMsg.AddByte(amount & 0xFF); N2kMsg.AddByte((amount >> 8) & 0xFF);
-  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF);
+  N2kMsg.Init(6, 130850, apCfg.srcAddr, 255);
+  N2kMsg.AddByte(0x41); N2kMsg.AddByte(0x9F); // Navico manufacturer code
+  N2kMsg.AddByte(0x04);                        // command type
+  N2kMsg.AddByte(0xFF); N2kMsg.AddByte(0xFF); // N/A
+  N2kMsg.AddByte(0x0A);                        // sub-command A (constant)
+  N2kMsg.AddByte(0x1A);                        // heading adjust sub-command
+  N2kMsg.AddByte(0x00);                        // constant
+  N2kMsg.AddByte(add ? 0x03 : 0x02);          // direction: TBC — 0x02=PORT(subtract), 0x03=STBD(add)?
+  N2kMsg.AddByte(amt & 0xFF);                  // amount low byte
+  N2kMsg.AddByte((amt >> 8) & 0xFF);           // amount high byte
+  N2kMsg.AddByte(0xFF);                        // constant
+
+  Serial.printf("[HDG ADJUST] %+d° → dir=0x%02X amt=%d\n",
+                degrees, add ? 0x01 : 0x02, amt);
   NMEA2000.SendMsg(N2kMsg);
 }
 
@@ -784,11 +874,10 @@ void setup() {
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
   NMEA2000.SetMsgHandler(HandleN2kMessage);
 
-  // ── DEBUG: uncomment to observe NMEA2000 bus traffic on Serial ──────────
-  // RECOMMENDED: enable on first live test to verify PGNs before commanding AP
-  // NMEA2000.SetForwardStream(&Serial);
-  // NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
-  // NMEA2000.SetForwardOwnMessages(false);
+  // ── DEBUG: log all bus traffic ───────────────────────────────────────────
+  NMEA2000.SetForwardStream(&Serial);
+  NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
+  NMEA2000.SetForwardOwnMessages(true);
   // ── END DEBUG ─────────────────────────────────────────────────────────────
 
   NMEA2000.Open();
