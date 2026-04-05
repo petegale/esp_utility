@@ -106,40 +106,113 @@ The ESP32 creates its own WiFi access point (`sensor` / `12345678`). Connect you
 ### Received
 | PGN | Data |
 |---|---|
-| 65288 | Autopilot mode (Navico/B&G proprietary) |
-| 65359 | Autopilot locked heading (Navico/B&G proprietary) |
+| 65305 | Autopilot engagement status (Navico/B&G proprietary) |
+| 65359 | Autopilot locked/commanded heading (Navico/B&G proprietary) |
+| 127237 | Heading/Track Control — NAC-3 broadcasts desired heading when engaged |
+| 127245 | Rudder angle |
 | 127250 | Vessel heading |
 | 128267 | Water depth |
 | 129025 | Own vessel position |
 | 129026 | COG & SOG |
+| 129283 | Cross Track Error (when route active) |
 | 130306 | Apparent wind speed & angle |
 | 129038 | AIS Class A position |
 | 129041 | AIS Class B position |
 | 129794 | AIS Class A static data (vessel name) |
 | 129809 | AIS Class B static data (vessel name) |
 
-### Autopilot Command PGNs (Navico/B&G proprietary)
-| PGN | Function |
+---
+
+## B&G NAC-3 Autopilot Protocol
+
+> Reverse-engineered from live NMEA2000 bus captures on a B&G system comprising NAC-3 autopilot computer, AP48 controller, Zeus 7 and ZeusSR 12 chartplotters. Confirmed working in April 2026.
+
+### Device addresses observed on bus
+
+| Source | Device |
 |---|---|
-| 65341 | Mode change command |
-| 65345 | Heading adjust / NFU rudder command |
+| 2 | ZeusSR 12 chartplotter |
+| 3 | AP48 autopilot controller |
+| 4 | NAC-3 autopilot computer |
+| 9 | Zeus 7 chartplotter |
 
-> ⚠️ **Important**: The autopilot command byte sequences are based on community reverse-engineering of the Navico/B&G protocol for the AP48 + Zeus combination. **Verify these against your physical hardware using debug logging before use at sea.** See [Debug Mode](#debug-mode) below.
+### Engagement status — PGN 65305 (received from NAC-3, src=4)
+
+```
+Data: 41 9F 64 [sub] [status] 00 00 00
+
+status byte:
+  0x10 = ENGAGED
+  0x08 = transitioning to standby
+  0x02 = STANDBY
+```
+
+The NAC-3 sends two consecutive 65305 messages when changing state (sub=0x0A then sub=0x02). Only src=4 (NAC-3) is authoritative — src=2 and src=9 also send 65305 as device capability heartbeats, not status.
+
+### Locked heading — PGN 65359 (received from NAC-3, src=4)
+
+```
+Data: 3B 9F FF FF FF [hdg_lo] [hdg_hi] FF
+
+heading = uint16_le([hdg_lo, hdg_hi]) × 0.0001 radians
+```
+
+Only broadcast when pilot is engaged. Heading field is at **bytes [5–6]**, not [2–3].
+
+### Command PGN — PGN 130850 (send to NAC-3)
+
+All autopilot commands use PGN 130850 with the Navico manufacturer prefix. The NAC-3 echoes every received command on **PGN 130851**.
+
+```
+Bytes: 41 9F 04 FF FF 0A [cmd] 00 [dir] [amt_lo] [amt_hi] FF
+```
+
+| Command | `cmd` | `dir` | `amt` |
+|---|---|---|---|
+| Engage (heading hold) | `0x09` | `0xFF` | `0xFF 0xFF` |
+| Disengage (standby) | `0x06` | `0xFF` | `0xFF 0xFF` |
+| Heading adjust PORT | `0x1A` | `0x02` | amount in 0.0001 rad LE |
+| Heading adjust STBD | `0x1A` | `0x03` | amount in 0.0001 rad LE |
+
+**Amount encoding** for heading adjust:
+
+```
+amount = degrees × (π / 180) / 0.0001
+
+1°  → 175  (0x00AE)
+10° → 1745 (0x06D1)
+```
+
+**Examples:**
+
+```
+Engage:      41 9F 04 FF FF 0A 09 00 FF FF FF FF
+Disengage:   41 9F 04 FF FF 0A 06 00 FF FF FF FF
+PORT 1°:     41 9F 04 FF FF 0A 1A 00 02 AE 00 FF
+STBD 1°:     41 9F 04 FF FF 0A 1A 00 03 AE 00 FF
+PORT 10°:    41 9F 04 FF FF 0A 1A 00 02 D1 06 FF
+STBD 10°:    41 9F 04 FF FF 0A 1A 00 03 D1 06 FF
+```
+
+The NAC-3 responds to engage/disengage commands within ~200ms. Heading adjust commands take effect immediately and are reflected in the next PGN 65359 broadcast.
+
+> **Note:** WIND, NAV, and NO DRIFT mode engage byte sequences have not yet been captured. All modes currently engage as heading hold. Contributions welcome.
 
 ---
 
-## Autopilot Mode Bytes (PGN 65341, Byte[1])
+## Autopilot Mode Data Availability
 
-| Mode | Byte | Precondition |
-|---|---|---|
-| Standby | `0x00` | None |
-| Auto (heading hold) | `0x01` | Valid compass heading on bus |
-| Direct (NFU) | `0x02` | None |
-| No Drift | `0x03` | Valid GPS position & COG on bus |
-| Wind | `0x04` | Valid apparent wind on bus |
-| Nav | `0x05` | Active route set on Zeus chartplotter |
+Mode selection in the UI is gated on sensor data being present and fresh on the NMEA2000 bus:
 
----
+| Mode | Required data |
+|---|---|
+| HEADING | Vessel heading (PGN 127250) |
+| WIND | Apparent wind (PGN 130306) |
+| NO DRIFT | GPS position + COG/SOG (PGNs 129025, 129026) |
+| NAV | GPS position + active route XTE (PGNs 129025, 129283) |
+| DIRECT | Rudder sensor (PGN 127245) |
+
+
 
 ## Sensor Input (UDP)
 
@@ -163,19 +236,17 @@ double fuelOutput[3] = {0.0, 52.0, 100.0};  // calibrated % full
 
 ## Debug Mode
 
-To capture what your physical AP48 actually sends on the NMEA2000 bus:
+The firmware includes a `[AP STATUS 65305]`, `[130850]`, `[130851]`, and `[127237]` logger that prints autopilot-relevant bus traffic to Serial at 115200 baud. This was used extensively during protocol reverse-engineering and remains useful for verifying commands are being sent and acknowledged.
 
-1. Uncomment the three lines in `setup()` marked `DEBUG`:
+To capture raw bus traffic for protocol analysis, temporarily enable `SetForwardStream` in `setup()`:
+
 ```cpp
 NMEA2000.SetForwardStream(&Serial);
 NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
-NMEA2000.SetForwardOwnMessages(false);
+NMEA2000.SetForwardOwnMessages(true);
 ```
-2. Flash and open Serial Monitor at 115200 baud
-3. Press each mode button on the physical AP48
-4. Note the PGN 65341 byte sequences
-5. Compare against `SendModeCommand()` in `main.cpp` and adjust if needed
-6. Re-comment the debug lines before normal deployment
+
+> ⚠️ Enabling full forward stream floods Serial and **will degrade NMEA2000 performance**. Disable before normal use.
 
 ---
 
@@ -189,12 +260,6 @@ lib_deps =
     fastled/FastLED@^3.10.2
     mathieucarbou/ESPAsyncWebServer@^3.3.12
 ```
-
----
-
-## UI Test File
-
-A standalone HTML test file is maintained in `ui_test/autopilot_ui_test.html`. This simulates the full UI including instrument data and AIS targets without requiring the ESP32. Open it in any browser or send to a phone via AirDrop / file share.
 
 ---
 
@@ -217,3 +282,5 @@ A standalone HTML test file is maintained in `ui_test/autopilot_ui_test.html`. T
 | 1.0005 | Apr 2026 | Full mode switching, NFU wheel |
 | 1.0006 | Apr 2026 | Active button states, 270° wheel sensitivity |
 | 1.0007 | Apr 2026 | Bug fixes, instruments screen, AIS radar |
+| 1.0008 | Apr 2026 | Protocol reverse-engineered from bus captures; engage/disengage and ±1°/±10° heading adjust confirmed working on NAC-3 |
+

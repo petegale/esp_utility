@@ -237,16 +237,13 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
 
     case 65359: {
       // Navico locked/commanded heading — only trust the NAC-3 (src=4)
-      // Our own device (src=204) also broadcasts 65359 with vessel heading,
-      // which would continuously overwrite lockedHeading if not filtered.
       if (N2kMsg.Source != 4) break;
-      // Format: 3B,9F,FF,FF,FF,[hdg_lo],[hdg_hi],FF
-      // Heading is at bytes[5-6] (0.0001 rad LE), NOT bytes[2-3]
       if (N2kMsg.DataLen < 7) break;
       uint16_t raw = (uint16_t)N2kMsg.Data[5] | ((uint16_t)N2kMsg.Data[6] << 8);
-      if (raw == 0xFFFF) break; // N/A
-      lockedHeading = RadToDeg(raw * 0.0001);
-      stateChanged = true;
+      if (raw == 0xFFFF) break;
+      double hdg = RadToDeg(raw * 0.0001);
+      Serial.printf("[65359]  raw=%u bytes[5]=%02X bytes[6]=%02X decoded=%.4f° floor=%d\n",
+                    raw, N2kMsg.Data[5], N2kMsg.Data[6], hdg, (int)hdg);
       break;
     }
 
@@ -448,11 +445,17 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
     }
 
     case 127237: {
-      // Heading/Track Control — log when from autopilot sources to track locked heading
-      if (N2kMsg.Source == 4 || N2kMsg.Source == 2 || N2kMsg.Source == 3) {
-        Serial.printf("[127237] src=%d:", N2kMsg.Source);
-        for (int i = 0; i < N2kMsg.DataLen && i < 21; i++) Serial.printf(" %02X", N2kMsg.Data[i]);
-        Serial.println();
+      // Heading/Track Control (NAC-3, src=4)
+      // Bytes [5-6]: Heading To Steer (0.0001 rad LE)
+      // NAC-3 rounds up to next degree internally — 127237 is consistently 1°
+      // higher than what chartplotters display. Subtract 1 to match.
+      if (N2kMsg.Source == 4 && N2kMsg.DataLen >= 7) {
+        uint16_t raw = (uint16_t)N2kMsg.Data[5] | ((uint16_t)N2kMsg.Data[6] << 8);
+        if (raw != 0xFFFF) {
+          double decoded = RadToDeg(raw * 0.0001) - 1.0;
+          lockedHeading = fmod(decoded + 360.0, 360.0);
+          stateChanged = true;
+        }
       }
       break;
     }
@@ -779,6 +782,11 @@ void loadSettings() {
 // ─── WebSocket event handler ──────────────────────────────────────────────────
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    // Send current state immediately to newly connected client
+    buildStateJson(jsonBuf, sizeof(jsonBuf));
+    client->text(jsonBuf);
+  }
   if (type == WS_EVT_DATA) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (info->final && info->index == 0 && info->len == len) {
@@ -874,10 +882,10 @@ void setup() {
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
   NMEA2000.SetMsgHandler(HandleN2kMessage);
 
-  // ── DEBUG: log all bus traffic ───────────────────────────────────────────
-  NMEA2000.SetForwardStream(&Serial);
-  NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
-  NMEA2000.SetForwardOwnMessages(true);
+  // ── DEBUG: uncomment to log all bus traffic to Serial ───────────────────
+  // NMEA2000.SetForwardStream(&Serial);
+  // NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
+  // NMEA2000.SetForwardOwnMessages(true);
   // ── END DEBUG ─────────────────────────────────────────────────────────────
 
   NMEA2000.Open();
@@ -913,6 +921,16 @@ void loop() {
   if (now - lastExpiry > 30000) {
     expireAisTargets();
     lastExpiry = now;
+  }
+
+  // Periodic state broadcast — ensures UI stays updated even if no NMEA events fire
+  static unsigned long lastPeriodicBroadcast = 0;
+  if (now - lastPeriodicBroadcast >= 500) {
+    lastPeriodicBroadcast = now;
+    buildStateJson(jsonBuf, sizeof(jsonBuf));
+    ws.textAll(jsonBuf);
+    Serial.printf("[STATE] vessel=%.1f locked=%.1f mode=%s\n",
+                  vesselHeading, lockedHeading, apMode.c_str());
   }
 
   // UDP sensor handling
