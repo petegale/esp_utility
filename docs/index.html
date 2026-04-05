@@ -342,6 +342,51 @@
     .s-status.ok  { color: #00cc55; }
     .s-status.err { color: #cc4400; }
     .s-note { font-size: 11px; color: #444; margin-top: 8px; line-height: 1.5; padding: 0 4px; }
+    /* Mode availability gating */
+    .mode-popup-row.unavailable { opacity: 1; cursor: not-allowed; }
+    .mode-popup-row.unavailable .mode-popup-name { color: #444 !important; }
+    .mode-popup-row.unavailable .mode-popup-desc { color: #333; }
+    .mode-unavail-reason {
+      font-size: 10px; color: #cc6600; margin-top: 4px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .mode-unavail-reason::before { content: "⚠"; font-size: 11px; }
+
+    /* Network test sheet */
+    #nettest-popup {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 150;
+      align-items: flex-end; justify-content: center;
+    }
+    #nettest-popup.open { display: flex; }
+    #nettest-sheet {
+      background: #1a1a1a; border-radius: 12px 12px 0 0;
+      width: 100%; max-width: 480px; padding: 16px 20px 32px;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .nettest-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid #222;
+    }
+    .nettest-row:last-child { border-bottom: none; }
+    .nettest-indicator {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; margin-top: 1px;
+    }
+    .nettest-indicator.waiting  { background: #222; color: #555; }
+    .nettest-indicator.checking { background: #332200; color: #ff8800; }
+    .nettest-indicator.pass     { background: #051a0a; color: #00cc55; }
+    .nettest-indicator.fail     { background: #1a0500; color: #cc2200; }
+    .nettest-indicator.action   { background: #0a1a33; color: #44aaff; }
+    .nettest-label  { font-size: 14px; color: #fff; font-weight: 600; }
+    .nettest-sub    { font-size: 11px; color: #555; margin-top: 2px; }
+    .nettest-action { font-size: 11px; color: #44aaff; margin-top: 4px; font-style: italic; }
+    .nettest-close-btn {
+      width: 100%; padding: 14px; border-radius: 8px; border: 1.5px solid #333;
+      background: #111; color: #888; font-size: 14px; font-weight: 700;
+      cursor: pointer; margin-top: 16px; letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
@@ -627,6 +672,26 @@
       <div class="s-note">Configures NMEA2000 proprietary PGNs for mode commands. Verify with debug logging before use at sea.</div>
     </div>
 
+    <!-- Network test -->
+    <div class="s-group">
+      <div class="s-group-label">DIAGNOSTICS</div>
+      <div class="s-card">
+        <div class="s-row" onclick="openNetTest()" style="cursor:pointer;">
+          <div class="s-row-icon" style="background:#0a1a33;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#44aaff" stroke-width="1.8" stroke-linecap="round">
+              <path d="M1 6s4-2 11-2 11 2 11 2"/><path d="M5 10s3-1 7-1 7 1 7 1"/>
+              <path d="M9 14s2-1 3-1 3 1 3 1"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/>
+            </svg>
+          </div>
+          <div class="s-row-body">
+            <div class="s-row-label">Network Test</div>
+            <div class="s-row-sub">Check NMEA2000 data sources</div>
+          </div>
+          <div style="color:#555;font-size:16px;">›</div>
+        </div>
+      </div>
+    </div>
+
     <button class="s-action-btn primary" onclick="saveSettings()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -759,6 +824,8 @@ function updateFromServer(d) {
     document.getElementById('awa-arrow').setAttribute('transform', 'rotate(' + awa + ',22,22)');
   }
   // AIS
+  // Data availability bitmask — drives mode gating and network test
+  if (d.avail !== undefined) { dataAvail = d.avail; }
   if (d.ownLat !== undefined && d.ownLat !== null && isFinite(d.ownLat)) { ownLat = d.ownLat; ownLon = d.ownLon; }
   if (d.targets !== undefined) { aisTargets = d.targets; updateAisDisplay(); }
 }
@@ -788,13 +855,40 @@ function goBack() { showScreen(previousScreen); }
 // ════════════════════════════════
 // AUTOPILOT
 // ════════════════════════════════
+// Availability bitmask bits — must match firmware defines
+const AVAIL_HEADING  = 1<<0;
+const AVAIL_AP       = 1<<1;
+const AVAIL_WIND     = 1<<2;
+const AVAIL_POSITION = 1<<3;
+const AVAIL_RUDDER   = 1<<4;
+const AVAIL_XTE      = 1<<5;
+const AVAIL_COGSOG   = 1<<6;
+
 const AP_MODES = [
-  { key:'HEADING',  wsKey:'AUTO',    color:'#00cc55', bg:'#051a0a', bd:'#006622', desc:'Hold compass heading' },
-  { key:'WIND',     wsKey:'WIND',    color:'#44aaff', bg:'#021833', bd:'#1a5a99', desc:'Hold apparent wind angle' },
-  { key:'NO DRIFT', wsKey:'NODRIFT', color:'#aa88ff', bg:'#150a2a', bd:'#5533aa', desc:'Hold GPS track over ground' },
-  { key:'NAV',      wsKey:'NAV',     color:'#ffcc00', bg:'#1a1500', bd:'#887700', desc:'Follow active GPS route' },
-  { key:'DIRECT',   wsKey:'NFU',     color:'#ff8800', bg:'#1a0d00', bd:'#884400', desc:'Steering wheel control' },
+  { key:'HEADING',  wsKey:'AUTO',    color:'#00cc55', bg:'#051a0a', bd:'#006622',
+    desc:'Hold compass heading',
+    requires: AVAIL_HEADING,
+    unavailMsg: 'No heading data on network' },
+  { key:'WIND',     wsKey:'WIND',    color:'#44aaff', bg:'#021833', bd:'#1a5a99',
+    desc:'Hold apparent wind angle',
+    requires: AVAIL_WIND,
+    unavailMsg: 'No wind data on network' },
+  { key:'NO DRIFT', wsKey:'NODRIFT', color:'#aa88ff', bg:'#150a2a', bd:'#5533aa',
+    desc:'Hold GPS track over ground',
+    requires: AVAIL_POSITION | AVAIL_COGSOG,
+    unavailMsg: 'No GPS position/COG data' },
+  { key:'NAV',      wsKey:'NAV',     color:'#ffcc00', bg:'#1a1500', bd:'#887700',
+    desc:'Follow active GPS route',
+    requires: AVAIL_POSITION | AVAIL_XTE,
+    unavailMsg: 'No active route detected' },
+  { key:'DIRECT',   wsKey:'NFU',     color:'#ff8800', bg:'#1a0d00', bd:'#884400',
+    desc:'Steering wheel control',
+    requires: AVAIL_RUDDER,
+    unavailMsg: 'No rudder sensor on network' },
 ];
+
+let dataAvail = 0; // bitmask updated from server
+
 
 let apEngaged    = false;
 let currentMode  = 'HEADING';
@@ -889,17 +983,27 @@ function buildModePopup() {
   const list = document.getElementById('mode-popup-list');
   list.innerHTML = '';
   AP_MODES.forEach(m => {
-    const active = m.key === currentMode;
+    const active    = m.key === currentMode;
+    const available = (dataAvail & m.requires) === m.requires;
     const row = document.createElement('div');
-    row.className = 'mode-popup-row';
+    row.className = 'mode-popup-row' + (available ? '' : ' unavailable');
     row.style.background  = active ? m.bg  : 'transparent';
     row.style.borderColor = active ? m.bd  : '#222';
+
+    let reasonHtml = '';
+    if (!available) {
+      reasonHtml = '<div class="mode-unavail-reason">' + m.unavailMsg + '</div>';
+    }
+
     row.innerHTML =
-      '<div><div class="mode-popup-name" style="color:' + m.color + '">' + m.key + '</div>' +
-      '<div class="mode-popup-desc">' + m.desc + '</div></div>' +
+      '<div style="flex:1"><div class="mode-popup-name" style="color:' +
+        (available ? m.color : '#444') + '">' + m.key + '</div>' +
+      '<div class="mode-popup-desc">' + m.desc + '</div>' +
+      reasonHtml + '</div>' +
       '<div class="mode-check" style="' + (active ? 'background:'+m.color+';border:none;' : '') + '">' +
       (active ? '\u2713' : '') + '</div>';
-    row.onclick = () => selectMode(m.key);
+
+    if (available) row.onclick = () => selectMode(m.key);
     list.appendChild(row);
   });
 }
@@ -1191,6 +1295,118 @@ function showStatus(msg, isError) {
 }
 
 // ════════════════════════════════
+// NETWORK TEST
+// ════════════════════════════════
+const NET_CHECKS = [
+  { id:'heading',  label:'Vessel Heading',    sub:'PGN 127250',
+    bit: AVAIL_HEADING,  timeout:8000,  action:null },
+  { id:'ap',       label:'Autopilot Status',  sub:'PGN 65288',
+    bit: AVAIL_AP,       timeout:12000, action:'Switch your autopilot ON (any mode)' },
+  { id:'wind',     label:'Wind Data',         sub:'PGN 130306',
+    bit: AVAIL_WIND,     timeout:8000,  action:null },
+  { id:'cogsog',   label:'GPS Speed / COG',   sub:'PGN 129026',
+    bit: AVAIL_COGSOG,   timeout:8000,  action:null },
+  { id:'position', label:'GPS Position',      sub:'PGN 129025',
+    bit: AVAIL_POSITION, timeout:8000,  action:null },
+  { id:'rudder',   label:'Rudder Sensor',     sub:'PGN 127245',
+    bit: AVAIL_RUDDER,   timeout:12000, action:'Engage Follow-Up (FU) mode on your autopilot' },
+  { id:'xte',      label:'Active Route',      sub:'PGN 129283',
+    bit: AVAIL_XTE,      timeout:10000, action:'Start an active route on your chartplotter' },
+];
+
+let netTestRunning = false;
+let netTestTimer   = null;
+
+function openNetTest() {
+  const sheet = document.getElementById('nettest-rows');
+  sheet.innerHTML = '';
+  NET_CHECKS.forEach(function(c) {
+    var row = document.createElement('div');
+    row.className = 'nettest-row';
+    row.id = 'ntr-' + c.id;
+    row.innerHTML =
+      '<div class="nettest-indicator waiting" id="nti-' + c.id + '">?</div>' +
+      '<div><div class="nettest-label">' + c.label + '</div>' +
+      '<div class="nettest-sub">' + c.sub + '</div>' +
+      '<div class="nettest-action" id="nta-' + c.id + '" style="display:none;">' + (c.action || '') + '</div>' +
+      '</div>';
+    sheet.appendChild(row);
+  });
+  document.getElementById('nettest-overall').textContent = 'CHECKING...';
+  document.getElementById('nettest-overall').style.color = '#555';
+  document.getElementById('nettest-popup').classList.add('open');
+  runNetTest();
+}
+
+function closeNetTest() {
+  netTestRunning = false;
+  if (netTestTimer) { clearTimeout(netTestTimer); netTestTimer = null; }
+  document.getElementById('nettest-popup').classList.remove('open');
+}
+
+function runNetTest() {
+  netTestRunning = true;
+  var idx = 0;
+
+  function checkNext() {
+    if (!netTestRunning || idx >= NET_CHECKS.length) { finishNetTest(); return; }
+    var c = NET_CHECKS[idx];
+    var ind = document.getElementById('nti-' + c.id);
+    var act = document.getElementById('nta-' + c.id);
+    ind.className = 'nettest-indicator checking';
+    ind.textContent = '\u2026';
+    if (c.action) {
+      ind.className = 'nettest-indicator action';
+      ind.textContent = '!';
+      act.style.display = 'block';
+    }
+    var deadline = Date.now() + c.timeout;
+    function poll() {
+      if (!netTestRunning) return;
+      if (dataAvail & c.bit) {
+        ind.className = 'nettest-indicator pass';
+        ind.textContent = '\u2713';
+        act.style.display = 'none';
+        idx++;
+        netTestTimer = setTimeout(checkNext, 300);
+      } else if (Date.now() > deadline) {
+        ind.className = 'nettest-indicator fail';
+        ind.textContent = '\u2717';
+        act.style.display = 'none';
+        idx++;
+        netTestTimer = setTimeout(checkNext, 300);
+      } else {
+        netTestTimer = setTimeout(poll, 250);
+      }
+    }
+    poll();
+  }
+  checkNext();
+}
+
+function finishNetTest() {
+  netTestRunning = false;
+  var passed = 0;
+  NET_CHECKS.forEach(function(c) {
+    var el = document.getElementById('nti-' + c.id);
+    if (el && el.classList.contains('pass')) passed++;
+  });
+  var overall = document.getElementById('nettest-overall');
+  var total = NET_CHECKS.length;
+  if (passed === total) {
+    overall.textContent = 'ALL PASSED';
+    overall.style.color = '#00cc55';
+  } else if (passed === 0) {
+    overall.textContent = 'NO DATA FOUND';
+    overall.style.color = '#cc2200';
+  } else {
+    overall.textContent = passed + ' / ' + total + ' FOUND';
+    overall.style.color = '#ff8800';
+  }
+}
+
+
+// ════════════════════════════════
 // TEST MODE — simulated data
 // ════════════════════════════════
 const OWN_LAT = 50.8100, OWN_LON = 0.5700;
@@ -1207,9 +1423,14 @@ const SIM_TARGETS = [
 // simState deliberately omits 'mode' and 'heading' so the sim interval
 // never overrides the user's engage/disengage actions via updateFromServer.
 // Only instrument and position data is pushed from the sim.
+// avail: heading + wind + position + COG/SOG all present; rudder and XTE absent
+// so DIRECT and NAV modes show as unavailable — demonstrating gating behaviour.
+const SIM_AVAIL = (1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<6); // HEADING|AP|WIND|POSITION|COGSOG
 let simState = {
   vessel:247,
   depth:24.6, sog:5.8, cog:247, aws:14.2, awa:42,
+  rudder: -999,
+  avail: SIM_AVAIL,
   ownLat:OWN_LAT, ownLon:OWN_LON,
   targets: SIM_TARGETS
 };
@@ -1246,5 +1467,18 @@ updateRingLabels();
 setModeDisplay('HEADING');
 connect();
 </script>
+
+<!-- Network test popup -->
+<div id="nettest-popup" onclick="if(event.target===this)closeNetTest()">
+  <div id="nettest-sheet">
+    <div class="popup-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:#fff;letter-spacing:1px;">NETWORK TEST</div>
+      <div id="nettest-overall" style="font-size:11px;color:#555;letter-spacing:1px;">CHECKING...</div>
+    </div>
+    <div id="nettest-rows"></div>
+    <button class="nettest-close-btn" onclick="closeNetTest()">CLOSE</button>
+  </div>
+</div>
 </body>
 </html>

@@ -28,6 +28,7 @@ int  bounds(int);
 int  findOrAllocAisSlot(uint32_t mmsi);
 void expireAisTargets();
 void buildStateJson(char* buf, size_t bufSize);
+uint8_t computeDataAvail();
 void updateAisTarget(int idx, uint32_t mmsi, double lat, double lon, double cog, double sog);
 void loadSettings();
 void saveSettings();
@@ -108,6 +109,7 @@ double vesselHeading = -1;    // -1 = no data
 
 // ─── Instrument data ──────────────────────────────────────────────────────────
 double depthM        = -1;    // metres, -1 = no data
+double rudderDeg     = -999;  // degrees, -999 = no data (0 is valid)
 double sogKn         = -1;    // knots,  -1 = no data
 double awsKn         = -1;    // apparent wind speed knots, -1 = no data
 double awaDeg        = -1;    // apparent wind angle degrees, -1 = no data
@@ -131,6 +133,28 @@ const unsigned long AIS_TARGET_TIMEOUT_MS = 300000; // 5 minutes
 // Own vessel position for AIS radar centre
 double ownLat = NAN;  // FIX #6: use NAN instead of -999 sentinel
 double ownLon = NAN;
+
+// ─── Data availability tracking ──────────────────────────────────────────────
+// Each flag records the last millis() a valid value was received from that source.
+// 0 = never received. Cleared after DATA_STALE_MS of silence.
+const unsigned long DATA_STALE_MS = 10000; // 10 seconds
+unsigned long lastSeenHeading  = 0; // PGN 127250
+unsigned long lastSeenAP       = 0; // PGN 65288
+unsigned long lastSeenWind     = 0; // PGN 130306
+unsigned long lastSeenPosition = 0; // PGN 129025
+unsigned long lastSeenRudder   = 0; // PGN 127245
+unsigned long lastSeenXTE      = 0; // PGN 129283 (active route / XTE)
+unsigned long lastSeenCOGSOG   = 0; // PGN 129026
+
+// Bitmask broadcast to UI — bits defined here, checked in JS
+// bit 0 = heading, 1 = AP, 2 = wind, 3 = position, 4 = rudder, 5 = XTE/route, 6 = COG/SOG
+#define AVAIL_HEADING  (1<<0)
+#define AVAIL_AP       (1<<1)
+#define AVAIL_WIND     (1<<2)
+#define AVAIL_POSITION (1<<3)
+#define AVAIL_RUDDER   (1<<4)
+#define AVAIL_XTE      (1<<5)
+#define AVAIL_COGSOG   (1<<6)
 
 // ─── NFU / Direct steering state ─────────────────────────────────────────────
 volatile int  nfuRate    = 0;
@@ -158,7 +182,7 @@ const unsigned long TransmitMessages[] PROGMEM = {
 // ─── JSON buffer ──────────────────────────────────────────────────────────────
 // FIX #10: Pre-allocated buffer instead of String concatenation
 // Worst case: ~200 bytes header + 20 targets * ~120 bytes each = ~2600 bytes
-static char jsonBuf[3072];
+static char jsonBuf[3200]; // expanded for avail/rudder fields
 
 // ─── HTML UI (PROGMEM, gzip-compressed) ──────────────────────────────────────
 // Generated at build time by generate_ui.py from src/index.html.
@@ -177,7 +201,7 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       uint8_t mode = N2kMsg.Data[1];
       const char* modes[] = {"STBY","AUTO","NFU","NODRIFT","WIND","NAV"};
       apMode = (mode < 6) ? modes[mode] : "----";
-      stateChanged = true;
+      lastSeenAP = millis(); stateChanged = true;
       break;
     }
 
@@ -195,7 +219,7 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       double heading, deviation, variation;
       tN2kHeadingReference ref;
       if (ParseN2kHeading(N2kMsg, sid, heading, deviation, variation, ref)) {
-        if (!N2kIsNA(heading)) { vesselHeading = RadToDeg(heading); stateChanged = true; }
+        if (!N2kIsNA(heading)) { vesselHeading = RadToDeg(heading); lastSeenHeading = millis(); stateChanged = true; }
       }
       break;
     }
@@ -216,8 +240,8 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       tN2kHeadingReference ref;
       double cog, sog;
       if (ParseN2kCOGSOGRapid(N2kMsg, sid, ref, cog, sog)) {
-        if (!N2kIsNA(sog)) { sogKn  = msToKnots(sog); stateChanged = true; }
-        if (!N2kIsNA(cog)) { cogDeg = RadToDeg(cog);  stateChanged = true; }
+        if (!N2kIsNA(sog)) { sogKn  = msToKnots(sog); lastSeenCOGSOG = millis(); stateChanged = true; }
+        if (!N2kIsNA(cog)) { cogDeg = RadToDeg(cog); stateChanged = true; }
       }
       break;
     }
@@ -229,8 +253,8 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       tN2kWindReference ref;
       if (ParseN2kWindSpeed(N2kMsg, sid, aws, awa, ref)) {
         if (ref == N2kWind_Apparent) {
-          if (!N2kIsNA(aws)) { awsKn  = msToKnots(aws); stateChanged = true; }
-          if (!N2kIsNA(awa)) { awaDeg = RadToDeg(awa);  stateChanged = true; }
+          if (!N2kIsNA(aws)) { awsKn  = msToKnots(aws); lastSeenWind = millis(); stateChanged = true; }
+          if (!N2kIsNA(awa)) { awaDeg = RadToDeg(awa); stateChanged = true; }
         }
       }
       break;
@@ -242,7 +266,7 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
       if (ParseN2kPositionRapid(N2kMsg, lat, lon)) {
         if (!N2kIsNA(lat) && !N2kIsNA(lon)) {
           ownLat = lat; ownLon = lon;
-          stateChanged = true;
+          lastSeenPosition = millis(); stateChanged = true;
         }
       }
       break;
@@ -306,6 +330,36 @@ void HandleN2kMessage(const tN2kMsg &N2kMsg) {
         if (idx >= 0) {
           strncpy(aisTargets[idx].name, name, 20);
           aisTargets[idx].name[20] = 0;
+          stateChanged = true;
+        }
+      }
+      break;
+    }
+
+    case 127245: {
+      // Rudder angle — required for DIRECT/NFU mode
+      uint8_t sid;
+      double rudder, angleOrder;
+      tN2kRudderDirectionOrder dir;
+      if (ParseN2kRudder(N2kMsg, rudder, sid, dir, angleOrder)) {
+        if (!N2kIsNA(rudder)) {
+          rudderDeg = RadToDeg(rudder);
+          lastSeenRudder = millis();
+          stateChanged = true;
+        }
+      }
+      break;
+    }
+
+    case 129283: {
+      // Cross Track Error — only broadcast when a route is active
+      uint8_t     sid;
+      tN2kXTEMode xteMode;
+      bool        navTerminated;
+      double      xte;
+      if (ParseN2kXTE(N2kMsg, sid, xteMode, navTerminated, xte)) {
+        if (!navTerminated && !N2kIsNA(xte)) {
+          lastSeenXTE = millis();
           stateChanged = true;
         }
       }
@@ -401,19 +455,36 @@ static void jsonEscapeStr(char* dest, size_t destSize, const char* src) {
   dest[di] = 0;
 }
 
+// ─── Data availability bitmask ───────────────────────────────────────────────
+uint8_t computeDataAvail() {
+  unsigned long now = millis();
+  uint8_t avail = 0;
+  if (now - lastSeenHeading  < DATA_STALE_MS) avail |= AVAIL_HEADING;
+  if (now - lastSeenAP       < DATA_STALE_MS) avail |= AVAIL_AP;
+  if (now - lastSeenWind     < DATA_STALE_MS) avail |= AVAIL_WIND;
+  if (now - lastSeenPosition < DATA_STALE_MS) avail |= AVAIL_POSITION;
+  if (now - lastSeenRudder   < DATA_STALE_MS) avail |= AVAIL_RUDDER;
+  if (now - lastSeenXTE      < DATA_STALE_MS) avail |= AVAIL_XTE;
+  if (now - lastSeenCOGSOG   < DATA_STALE_MS) avail |= AVAIL_COGSOG;
+  return avail;
+}
+
 // ─── Build state JSON using pre-allocated buffer ─────────────────────────────
-// FIX #10: snprintf into static buffer instead of String concatenation
 void buildStateJson(char* buf, size_t bufSize) {
+  char latBuf[16], lonBuf[16];
+  uint8_t avail = computeDataAvail();
   int pos = snprintf(buf, bufSize,
     "{\"mode\":\"%s\",\"heading\":%.1f,\"vessel\":%.1f,"
     "\"depth\":%.1f,\"sog\":%.1f,\"cog\":%.1f,"
     "\"aws\":%.1f,\"awa\":%.1f,"
+    "\"rudder\":%.1f,\"avail\":%u,"
     "\"ownLat\":%s,\"ownLon\":%s,"
     "\"targets\":[",
     apMode.c_str(), lockedHeading, vesselHeading,
     depthM, sogKn, cogDeg, awsKn, awaDeg,
-    isnan(ownLat) ? "null" : String(ownLat, 6).c_str(),
-    isnan(ownLon) ? "null" : String(ownLon, 6).c_str()
+    rudderDeg, (unsigned)avail,
+    isnan(ownLat) ? "null" : (snprintf(latBuf, sizeof(latBuf), "%.6f", ownLat), latBuf),
+    isnan(ownLon) ? "null" : (snprintf(lonBuf, sizeof(lonBuf), "%.6f", ownLon), lonBuf)
   );
 
   bool first = true;
@@ -705,14 +776,16 @@ void setup() {
   Serial.println("Web server up");
 
   NMEA2000.SetN2kCANSendFrameBufSize(250);
-  NMEA2000.SetN2kCANReceiveFrameBufSize(250); // FIX #16: Set receive buffer too
+  NMEA2000.SetN2kCANReceiveFrameBufSize(250);
+  NMEA2000.ExtendTransmitMessages(TransmitMessages);
   NMEA2000.SetProductInformation("00000001", 100, "Sensor Network",
                                  "1.0008 Apr 2026", "1.0008 Apr 2026");
   NMEA2000.SetDeviceInformation(1, 150, 75, 2046);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
   NMEA2000.SetMsgHandler(HandleN2kMessage);
 
-  // ── DEBUG: uncomment to sniff all NMEA2000 bus traffic ───────────────────
+  // ── DEBUG: uncomment to observe NMEA2000 bus traffic on Serial ──────────
+  // RECOMMENDED: enable on first live test to verify PGNs before commanding AP
   // NMEA2000.SetForwardStream(&Serial);
   // NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
   // NMEA2000.SetForwardOwnMessages(false);
